@@ -1,0 +1,229 @@
+/* ==========================================================================
+   Astral — Design Tokens
+   Dark theme with metallic gold accents. Mapped 1:1 from the iOS
+   DesignSystem package (Colors.swift, Typography.swift, AstralAnimations.swift).
+   ========================================================================== */
+
+:root {
+  /* ─── BACKGROUNDS ─────────────────────────────────────────────────────── */
+  --bg: #0a0a0b; /* root canvas, reader-dark */
+  --surface: #141416; /* cards, nav rails, tab bar */
+  --elevated: #1e1e22; /* thumbnails, inputs, nested surfaces */
+
+  /* ─── BORDERS / TEXT ──────────────────────────────────────────────────── */
+  --border: #2a2a30;
+  --muted: #6b6b7a; /* secondary text, disabled glyphs */
+  --body: #c8c8d4; /* default running text */
+  --white: #f0f0f8; /* headings, hi-emphasis */
+
+  /* ─── ACCENT ──────────────────────────────────────────────────────────── */
+  --gold: #c9a84c; /* the one accent. Used sparingly. */
+  --gold-soft: rgba(201, 168, 76, 0.12); /* pill bg for active nav */
+  --gold-tint: rgba(201, 168, 76, 0.15); /* status badge bg */
+
+  /* ─── READER BACKGROUNDS ──────────────────────────────────────────────── */
+  --reader-dark: #0a0a0b;
+  --reader-sepia: #2c1810;
+  --reader-paper: #f5f0e8;
+
+  /* ─── SEMANTIC ────────────────────────────────────────────────────────── */
+  --success: #4caf50;
+  --warning: #ffa726;
+  --error: #ef5350;
+
+  /* ─── TYPE SCALE (pt → px, iOS semantic) ──────────────────────────────── */
+  --fs-display: 34px; /* 34pt bold — hero titles */
+  --fs-title: 22px; /* 22pt semibold — screen titles */
+  --fs-title-small: 18px; /* 18pt semibold — section headers */
+  --fs-body: 16px; /* 16pt regular — default */
+  --fs-caption: 12px; /* 12pt — metadata, badges */
+  --fs-reader-min: 14px; /* fanfic reader lower bound */
+  --fs-reader-max: 22px; /* fanfic reader upper bound */
+
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+
+  --lh-tight: 1.2;
+  --lh-normal: 1.45;
+  --lh-reader: 1.6; /* fanfic reader default */
+
+  /* ─── FAMILIES ────────────────────────────────────────────────────────── */
+  /* iOS uses SF Pro system font — Inter is the fallback for web surfaces.
+     Reader serif matches Apple's NY / serif fallback. */
+  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  --font-reader: 'Iowan Old Style', 'Charter', 'Georgia', 'New York', serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* ─── SPACING (Apple 4pt grid) ────────────────────────────────────────── */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+
+  /* ─── RADII ───────────────────────────────────────────────────────────── */
+  --radius-sm: 4px; /* inline chips, source icons */
+  --radius-md: 6px; /* thumbnails in strips */
+  --radius-lg: 8px; /* cards, nav rows, thumbs */
+  --radius-xl: 12px; /* primary surfaces (astralCard) */
+  --radius-pill: 999px; /* capsule — status badges, gold buttons, tab bar */
+
+  /* ─── SHADOWS / ELEVATION ─────────────────────────────────────────────── */
+  /* Astral uses 0.5px hairline borders for separation, not drop shadow.
+     These are reserved for modal/overlay contexts only. */
+  --hairline: inset 0 0 0 0.5px var(--border);
+  --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.45);
+
+  /* ─── MOTION ──────────────────────────────────────────────────────────── */
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-micro: 150ms; /* HUD fade */
+  --dur-quick: 200ms; /* state flips */
+  --dur-standard: 300ms; /* content transitions */
+  --dur-sidebar: 350ms; /* overlay drawer */
+
+  /* Spring approximations for CSS (true springs are SwiftUI-only) */
+  --spring-snappy: cubic-bezier(0.22, 1, 0.36, 1);
+  --spring-bouncy: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --spring-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* ==========================================================================
+   Base / semantic type
+   ========================================================================== */
+
+html,
+body {
+  background: var(--bg);
+  color: var(--body);
+  font-family: var(--font-ui);
+  font-size: var(--fs-body);
+  line-height: var(--lh-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+.display {
+  font-size: var(--fs-display);
+  font-weight: var(--fw-bold);
+  color: var(--white);
+  line-height: var(--lh-tight);
+  letter-spacing: -0.02em;
+}
+
+h2,
+.title {
+  font-size: var(--fs-title);
+  font-weight: var(--fw-semibold);
+  color: var(--white);
+  line-height: var(--lh-tight);
+  letter-spacing: -0.01em;
+}
+
+h3,
+.title-small {
+  font-size: var(--fs-title-small);
+  font-weight: var(--fw-semibold);
+  color: var(--white);
+  line-height: var(--lh-tight);
+}
+
+p,
+.body {
+  font-size: var(--fs-body);
+  font-weight: var(--fw-regular);
+  color: var(--body);
+  line-height: var(--lh-normal);
+}
+
+.body-medium {
+  font-size: var(--fs-body);
+  font-weight: var(--fw-medium);
+}
+
+.caption {
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-regular);
+  color: var(--muted);
+  line-height: var(--lh-normal);
+}
+
+.caption-medium {
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-medium);
+  color: var(--muted);
+}
+
+code,
+.mono {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.reader-text {
+  font-family: var(--font-reader);
+  font-size: var(--fs-body);
+  line-height: var(--lh-reader);
+  color: var(--body);
+}
+
+/* ==========================================================================
+   Utilities — component building blocks
+   ========================================================================== */
+
+.astral-card {
+  background: var(--surface);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--hairline);
+}
+
+.astral-gold-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 12px 20px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(135deg, var(--gold), rgba(201, 168, 76, 0.85));
+  color: var(--bg);
+  font: var(--fw-medium) var(--fs-body)/1 var(--font-ui);
+  cursor: pointer;
+  transition:
+    transform var(--dur-quick) var(--spring-snappy),
+    opacity var(--dur-quick) var(--ease);
+}
+.astral-gold-btn:active {
+  transform: scale(0.94);
+  opacity: 0.88;
+}
+
+.astral-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--gold-tint);
+  color: var(--gold);
+  font: var(--fw-medium) var(--fs-caption)/1 var(--font-ui);
+}
+.astral-badge--success {
+  color: var(--success);
+  background: rgba(76, 175, 80, 0.15);
+}
+.astral-badge--warning {
+  color: var(--warning);
+  background: rgba(255, 167, 38, 0.15);
+}
+.astral-badge--error {
+  color: var(--error);
+  background: rgba(239, 83, 80, 0.15);
+}
+.astral-badge--muted {
+  color: var(--muted);
+  background: rgba(107, 107, 122, 0.15);
+}
