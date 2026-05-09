@@ -88,7 +88,7 @@ export function PlaceholderApp({ title, description }: { title: string; descript
   );
 }
 
-function Icon({
+export function Icon({
   name,
   size = 16,
   className,
@@ -116,7 +116,7 @@ function Icon({
   );
 }
 
-function CompanyLogo({
+export function CompanyLogo({
   companyId,
   size = 32,
   radius = 6,
@@ -162,7 +162,7 @@ function Avatar({ who, size = 22 }: { who: TeamId; size?: number }) {
   );
 }
 
-function TopBar() {
+export function TopBar() {
   const pathname = usePathname();
   const router = useRouter();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -1327,7 +1327,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function ToastHost() {
+export function ToastHost() {
   const toasts = useUiStore((state) => state.toasts);
   return (
     <div className="toast-host">

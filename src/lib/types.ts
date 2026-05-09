@@ -32,6 +32,49 @@ export type Company = {
   dark?: boolean;
 };
 
+export type CompanyDetail = {
+  id: CompanyId;
+  industry: string;
+  hq: string;
+  size: string;
+  founded: number;
+  rating: number;
+  ceoApproval: number;
+  recommendFriend: number;
+  openRoles: number;
+  interviewDifficulty: number;
+  medianComp: number;
+  fundingStage: string;
+  tags: string[];
+};
+
+export type JobListing = {
+  id: Uuid;
+  displayId: string;
+  company: CompanyId;
+  role: string;
+  location: string;
+  remote: RemoteMode;
+  salaryMin: number;
+  salaryMax: number;
+  posted: IsoDate;
+  match: number;
+  tags: string[];
+  saved: boolean;
+};
+
+export type DailyPick = {
+  id: Uuid;
+  company: CompanyId;
+  role: string;
+  location: string;
+  salary: string;
+  match: number;
+  why: string[];
+  posted: string;
+  applicants: string;
+};
+
 export type TeamMember = {
   id: TeamId;
   name: string;
@@ -68,7 +111,7 @@ export type Application = Audited & {
   nextActionDue?: IsoDate;
   rejectedReason?: string;
   offer?: { base: number; bonus: number; equity: number; total: number };
-  sourceListingId: Uuid | null;
+  sourceListingId: string | null;
   sortIndex: number;
   archivedAt: IsoDateTime | null;
 };

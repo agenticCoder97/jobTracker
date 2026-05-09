@@ -5,7 +5,17 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { seedAll, seedUuid, type SortMode } from '@/lib/data/seed';
 import { computeAts } from '@/lib/utils/ats';
 import { daysAgo } from '@/lib/utils/dates';
-import type { Activity, AppDocs, Application, HistoryEvent, StatusId, Uuid } from '@/lib/types';
+import type {
+  Activity,
+  AppDocs,
+  Application,
+  DailyPick,
+  HistoryEvent,
+  JobListing,
+  RemoteMode,
+  StatusId,
+  Uuid,
+} from '@/lib/types';
 import { useProfileStore } from '@/lib/store/profile-store';
 
 const seed = seedAll();
@@ -22,6 +32,7 @@ type AppsState = {
   reorderInStatus: (status: StatusId, orderedIds: Uuid[]) => void;
   setStatusSortMode: (status: StatusId, mode: SortMode) => void;
   addComment: (applicationId: Uuid, text: string) => void;
+  addToWishlist: (listing: JobListing | DailyPick, source?: 'Jobs' | 'Research') => Application;
   applyCard: (id: Uuid, docs: { resumeId: Uuid; coverLetterId: Uuid | null }) => void;
   reset: () => void;
 };
@@ -45,6 +56,32 @@ function bump(app: Application): Application {
   return { ...app, updatedAt: now, lastActivity: now };
 }
 
+function nextDisplayId(applications: Application[]): string {
+  const nextNumber =
+    Math.max(...applications.map((app) => Number(app.displayId.replace('JT-', '')))) + 1;
+  return `JT-${nextNumber}`;
+}
+
+function modeFromLocation(location: string): RemoteMode {
+  if (location.toLowerCase().includes('remote')) return 'Remote';
+  if (location.toLowerCase().includes('onsite')) return 'Onsite';
+  return 'Hybrid';
+}
+
+function salaryMinFromPick(pick: DailyPick): number {
+  const first = pick.salary.match(/\$([0-9]+)/)?.[1];
+  return first ? Number(first) : 180;
+}
+
+function salaryMaxFromPick(pick: DailyPick): number {
+  const values = Array.from(pick.salary.matchAll(/([0-9]+)K/g)).map((match) => Number(match[1]));
+  return values.at(-1) ?? salaryMinFromPick(pick) + 60;
+}
+
+function listingId(input: JobListing | DailyPick): string {
+  return 'displayId' in input ? input.displayId : input.id;
+}
+
 export const useAppsStore = create<AppsState>()(
   persist(
     (set, get) => ({
@@ -54,10 +91,7 @@ export const useAppsStore = create<AppsState>()(
       statusSortMode: seed.statusSortMode,
       getByDisplayId: (displayId) => get().applications.find((app) => app.displayId === displayId),
       createCard: (status) => {
-        const nextNumber =
-          Math.max(...get().applications.map((app) => Number(app.displayId.replace('JT-', '')))) +
-          1;
-        const displayId = `JT-${nextNumber}`;
+        const displayId = nextDisplayId(get().applications);
         const app: Application = {
           id: seedUuid(displayId),
           ownerUserId: seed.applications[0]?.ownerUserId ?? '00000000-0000-0000-0000-000000000001',
@@ -178,6 +212,63 @@ export const useAppsStore = create<AppsState>()(
             app.id === applicationId ? bump(app) : app,
           ),
         }));
+      },
+      addToWishlist: (input, source = 'Jobs') => {
+        const sourceId = listingId(input);
+        const existing = get().applications.find((app) => app.sourceListingId === sourceId);
+        if (existing) return existing;
+
+        const displayId = nextDisplayId(get().applications);
+        const now = new Date().toISOString();
+        const salaryMin = 'salaryMin' in input ? input.salaryMin : salaryMinFromPick(input);
+        const salaryMax = 'salaryMax' in input ? input.salaryMax : salaryMaxFromPick(input);
+        const equity =
+          'salary' in input && input.salary.includes('+')
+            ? input.salary.split('+').at(1)?.trim()
+            : undefined;
+        const app: Application = {
+          id: seedUuid(displayId),
+          ownerUserId: seed.applications[0]?.ownerUserId ?? '00000000-0000-0000-0000-000000000001',
+          createdAt: now,
+          updatedAt: now,
+          deletedAt: null,
+          displayId,
+          status: 'wishlist',
+          company: input.company,
+          role: input.role,
+          location: input.location,
+          remote: 'remote' in input ? input.remote : modeFromLocation(input.location),
+          salaryMin,
+          salaryMax,
+          level: input.role.toLowerCase().includes('staff') ? 'Staff' : 'Senior',
+          team: 'Discovery',
+          posted:
+            'posted' in input && /^\d{4}-\d{2}-\d{2}$/.test(input.posted)
+              ? input.posted
+              : daysAgo(0),
+          applied: null,
+          lastActivity: now,
+          priority: input.match >= 85 ? 'high' : 'med',
+          source: `${source} discovery`,
+          progress: 5,
+          tags: 'tags' in input ? input.tags : input.why.slice(0, 2),
+          description: `Discovered from ${source}. Match score ${input.match}%.`,
+          sourceListingId: sourceId,
+          sortIndex: get().applications.filter((item) => item.status === 'wishlist').length,
+          archivedAt: null,
+        };
+        if (equity) app.equity = equity;
+        set((state) => ({
+          applications: [app, ...state.applications],
+          activity: {
+            ...state.activity,
+            [app.id]: {
+              ...emptyActivity(),
+              history: [historyEvent('created', `Added to wishlist from ${source}`)],
+            },
+          },
+        }));
+        return app;
       },
       applyCard: (id, docs) => {
         const resume = useProfileStore.getState().resumes.find((item) => item.id === docs.resumeId);
