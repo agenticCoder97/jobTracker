@@ -256,11 +256,7 @@ function DocumentsTab({ kind }: { kind: 'resume' | 'cover' }) {
               {doc.isDefault ? (
                 <span className="chip is-tag">Default</span>
               ) : (
-                <button
-                  className="card-cta"
-                  type="button"
-                  onClick={() => setDefaultResume(doc.id)}
-                >
+                <button className="card-cta" type="button" onClick={() => setDefaultResume(doc.id)}>
                   Set default
                 </button>
               )}
@@ -280,11 +276,7 @@ function DocumentsTab({ kind }: { kind: 'resume' | 'cover' }) {
               {doc.isDefault ? (
                 <span className="chip is-tag">Default</span>
               ) : (
-                <button
-                  className="card-cta"
-                  type="button"
-                  onClick={() => setDefaultCover(doc.id)}
-                >
+                <button className="card-cta" type="button" onClick={() => setDefaultCover(doc.id)}>
                   Set default
                 </button>
               )}
@@ -425,11 +417,7 @@ function ProfileSidePanel() {
           See all 18 viewers →
         </DemoOnly>
       </div>
-      <button
-        className="card-cta is-primary"
-        type="button"
-        onClick={() => setResetOpen(true)}
-      >
+      <button className="card-cta is-primary" type="button" onClick={() => setResetOpen(true)}>
         Reset demo data
       </button>
       <ConfirmDialog

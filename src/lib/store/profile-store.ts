@@ -38,12 +38,19 @@ type ProfileState = {
   setDefaultCoverLetter: (id: Uuid) => void;
   incrementResumeUse: (id: Uuid) => void;
   incrementCoverLetterUse: (id: Uuid) => void;
-  addResume: (input: Omit<Resume, 'id' | 'ownerUserId' | 'createdAt' | 'updatedAt' | 'deletedAt'>) => Resume;
+  addResume: (
+    input: Omit<Resume, 'id' | 'ownerUserId' | 'createdAt' | 'updatedAt' | 'deletedAt'>,
+  ) => Resume;
   removeResume: (id: Uuid) => void;
   editResume: (id: Uuid, patch: Partial<Omit<Resume, 'id' | 'ownerUserId' | 'createdAt'>>) => void;
-  addCoverLetter: (input: Omit<CoverLetter, 'id' | 'ownerUserId' | 'createdAt' | 'updatedAt' | 'deletedAt'>) => CoverLetter;
+  addCoverLetter: (
+    input: Omit<CoverLetter, 'id' | 'ownerUserId' | 'createdAt' | 'updatedAt' | 'deletedAt'>,
+  ) => CoverLetter;
   removeCoverLetter: (id: Uuid) => void;
-  editCoverLetter: (id: Uuid, patch: Partial<Omit<CoverLetter, 'id' | 'ownerUserId' | 'createdAt'>>) => void;
+  editCoverLetter: (
+    id: Uuid,
+    patch: Partial<Omit<CoverLetter, 'id' | 'ownerUserId' | 'createdAt'>>,
+  ) => void;
   reset: () => void;
 };
 
@@ -146,7 +153,9 @@ export const useProfileStore = create<ProfileState>()(
       editResume: (id, patch) => {
         set((state) => ({
           resumes: state.resumes.map((resume) =>
-            resume.id === id ? { ...resume, ...patch, updatedAt: new Date().toISOString() } : resume,
+            resume.id === id
+              ? { ...resume, ...patch, updatedAt: new Date().toISOString() }
+              : resume,
           ),
           activity: [entry('resume.edit', 'Resume edited'), ...state.activity],
         }));
@@ -164,7 +173,10 @@ export const useProfileStore = create<ProfileState>()(
         };
         set((state) => ({
           coverLetters: [coverLetter, ...state.coverLetters],
-          activity: [entry('cover.add', `Cover letter added: ${coverLetter.name}`), ...state.activity],
+          activity: [
+            entry('cover.add', `Cover letter added: ${coverLetter.name}`),
+            ...state.activity,
+          ],
         }));
         return coverLetter;
       },
@@ -173,7 +185,10 @@ export const useProfileStore = create<ProfileState>()(
         if (!target) return;
         set((state) => ({
           coverLetters: state.coverLetters.filter((cl) => cl.id !== id),
-          activity: [entry('cover.remove', `Cover letter removed: ${target.name}`), ...state.activity],
+          activity: [
+            entry('cover.remove', `Cover letter removed: ${target.name}`),
+            ...state.activity,
+          ],
         }));
       },
       editCoverLetter: (id, patch) => {

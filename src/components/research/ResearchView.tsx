@@ -130,10 +130,7 @@ export function ResearchView() {
         </section>
 
         <section className="view-section" data-demo-data="true">
-          <SectionHead
-            title="LinkedIn signals"
-            sub="Demo data — no LinkedIn integration in v1"
-          />
+          <SectionHead title="LinkedIn signals" sub="Demo data — no LinkedIn integration in v1" />
           <div className="three-col">
             <SocialPanel
               title="People to connect with"
