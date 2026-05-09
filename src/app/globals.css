@@ -517,17 +517,18 @@ a {
   font-size: 13px;
 }
 
-.app-card__logo.is-svgl {
+.app-card__logo.is-image-logo {
   overflow: hidden;
   background: var(--white);
   color: var(--bg);
   padding: 6px;
 }
 
-.app-card__logo.is-svgl svg {
+.app-card__logo.is-image-logo img {
   display: block;
   width: 100%;
   height: 100%;
+  object-fit: contain;
 }
 
 .app-card__title-wrap {

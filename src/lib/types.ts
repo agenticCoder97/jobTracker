@@ -28,6 +28,8 @@ export type Company = {
   name: string;
   bg: string;
   initial: string;
+  domain?: string;
+  logoUrl?: string;
   ring?: boolean;
   dark?: boolean;
 };

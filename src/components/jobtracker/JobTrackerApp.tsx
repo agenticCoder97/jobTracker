@@ -1,21 +1,6 @@
 'use client';
 
 import {
-  Airbnb,
-  AnthropicDark,
-  Cloudflare,
-  CursorDark,
-  Datadog,
-  Figma,
-  Linear,
-  Notion,
-  OpenAIDark,
-  PerplexityAI,
-  Shopify,
-  Stripe,
-  VercelDark,
-} from '@ridemountainpig/svgl-react';
-import {
   DndContext,
   KeyboardSensor,
   PointerSensor,
@@ -37,17 +22,9 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ComponentType,
-  type CSSProperties,
-  type ReactNode,
-  type SVGProps,
-} from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { DemoOnly } from '@/components/ui/DemoOnly';
+import { getCompanyLogoSources, resolveLogoCompany } from '@/lib/company-logos';
 import { COMPANIES, STATUSES, TEAM } from '@/lib/data/seed';
 import { resolveIcon } from '@/lib/icon-map';
 import { useAppsStore } from '@/lib/store/apps-store';
@@ -83,23 +60,6 @@ const tabs = [
 ] as const;
 
 type DetailTab = (typeof tabs)[number]['id'];
-type SvgLogo = ComponentType<SVGProps<SVGSVGElement>>;
-
-const SVGL_LOGOS: Partial<Record<CompanyId, SvgLogo>> = {
-  airbnb: Airbnb,
-  anthropic: AnthropicDark,
-  cloudflare: Cloudflare,
-  cursor: CursorDark,
-  datadog: Datadog,
-  figma: Figma,
-  linear: Linear,
-  notion: Notion,
-  openai: OpenAIDark,
-  perplexity: PerplexityAI,
-  shopify: Shopify,
-  stripe: Stripe,
-  vercel: VercelDark,
-};
 
 export function JobTrackerApp({ initialCardDisplayId }: JobTrackerAppProps) {
   const hydrated = useHydration();
@@ -170,21 +130,38 @@ export function CompanyLogo({
   size?: number;
   radius?: number;
 }) {
-  const company = COMPANIES[companyId];
-  if (!company) return null;
-  const Logo = SVGL_LOGOS[companyId];
-  if (Logo) {
+  const company = resolveLogoCompany(companyId, COMPANIES[companyId]);
+  const logoSources = useMemo(() => getCompanyLogoSources(company, size), [company, size]);
+  const [sourceIndex, setSourceIndex] = useState(0);
+  const source = logoSources[sourceIndex];
+
+  useEffect(() => {
+    setSourceIndex(0);
+  }, [company.id, size]);
+
+  if (source) {
     return (
       <span
         aria-label={`${company.name} logo`}
-        className="app-card__logo is-svgl"
+        className="app-card__logo is-image-logo"
         style={{
           width: size,
           height: size,
           borderRadius: radius,
         }}
       >
-        <Logo aria-hidden="true" focusable="false" />
+        {/* eslint-disable-next-line @next/next/no-img-element -- Logo fallbacks include external SVG sources and need native onError source cycling. */}
+        <img
+          alt=""
+          aria-hidden="true"
+          decoding="async"
+          height={size}
+          loading="lazy"
+          referrerPolicy={source.referrerPolicy}
+          src={source.src}
+          width={size}
+          onError={() => setSourceIndex((current) => current + 1)}
+        />
       </span>
     );
   }

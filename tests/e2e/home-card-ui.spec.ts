@@ -7,10 +7,10 @@ test.describe('home card UI', () => {
     await expect(page.locator('.app-card__bar')).toHaveCount(0);
   });
 
-  test('supported company logos render as SVGL svg logos', async ({ page }) => {
+  test('supported company logos render as image logos', async ({ page }) => {
     await page.goto('/');
     const stripeCard = page.locator('.app-card', { hasText: 'Stripe' }).first();
     await expect(stripeCard).toBeVisible();
-    await expect(stripeCard.locator('.app-card__logo svg')).toBeVisible();
+    await expect(stripeCard.locator('.app-card__logo img')).toBeVisible();
   });
 });
