@@ -4,13 +4,14 @@ import * as Checkbox from '@radix-ui/react-checkbox';
 import * as RadioGroup from '@radix-ui/react-radio-group';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { Icon } from '@/components/jobtracker/JobTrackerApp';
 import { COMPANIES } from '@/lib/data/seed';
 import { useAppsStore } from '@/lib/store/apps-store';
 import { useProfileStore } from '@/lib/store/profile-store';
+import { useHydration } from '@/lib/store/use-hydration';
 import { useUiStore } from '@/lib/store/ui-store';
 
 const schema = z.object({
@@ -22,6 +23,7 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 export function ResumePickerDialog({ displayId }: { displayId: string }) {
+  const hydrated = useHydration();
   const router = useRouter();
   const app = useAppsStore((state) => state.getByDisplayId(displayId));
   const appDocs = useAppsStore((state) => state.appDocs);
@@ -47,7 +49,13 @@ export function ResumePickerDialog({ displayId }: { displayId: string }) {
     defaultValues: defaults,
     mode: 'onChange',
   });
+  useEffect(() => {
+    if (hydrated) form.reset(defaults);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated, defaults.resumeId, defaults.coverLetterId, defaults.includeCover]);
   const includeCover = form.watch('includeCover');
+
+  if (!hydrated) return null;
 
   if (!app) {
     return (

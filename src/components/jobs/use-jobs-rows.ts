@@ -110,7 +110,7 @@ export function buildJobsRows(
 
   const listingRows: JobsRow[] = includeListings
     ? listings
-        .filter((listing) => !trackedListingIds.has(listing.displayId))
+        .filter((listing) => !trackedListingIds.has(listing.id))
         .map((listing) => {
           const companyName = COMPANIES[listing.company]?.name ?? listing.company;
           const searchText = normalizedSearch([

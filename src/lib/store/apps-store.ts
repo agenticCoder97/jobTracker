@@ -17,6 +17,7 @@ import type {
   Uuid,
 } from '@/lib/types';
 import { useProfileStore } from '@/lib/store/profile-store';
+import { recordAudit } from '@/lib/store/audit';
 
 const seed = seedAll();
 
@@ -57,8 +58,8 @@ function bump(app: Application): Application {
 }
 
 function nextDisplayId(applications: Application[]): string {
-  const nextNumber =
-    Math.max(...applications.map((app) => Number(app.displayId.replace('JT-', '')))) + 1;
+  const numbers = applications.map((app) => Number(app.displayId.replace('JT-', '')));
+  const nextNumber = (numbers.length > 0 ? Math.max(...numbers) : 0) + 1;
   return `JT-${nextNumber}`;
 }
 
@@ -78,8 +79,8 @@ function salaryMaxFromPick(pick: DailyPick): number {
   return values.at(-1) ?? salaryMinFromPick(pick) + 60;
 }
 
-function listingId(input: JobListing | DailyPick): string {
-  return 'displayId' in input ? input.displayId : input.id;
+function listingId(input: JobListing | DailyPick): Uuid {
+  return input.id;
 }
 
 export const useAppsStore = create<AppsState>()(
@@ -130,6 +131,7 @@ export const useAppsStore = create<AppsState>()(
             },
           },
         }));
+        recordAudit('application', app.id, 'created', { source: 'manual', status });
         return app;
       },
       updateApp: (id, patch, text = 'Application updated') => {
@@ -145,6 +147,7 @@ export const useAppsStore = create<AppsState>()(
             },
           },
         }));
+        recordAudit('application', id, 'fields_edited', { fields: Object.keys(patch) });
       },
       moveStatus: (id, status) => {
         set((state) => ({
@@ -170,6 +173,7 @@ export const useAppsStore = create<AppsState>()(
           },
           statusSortMode: { ...state.statusSortMode, [status]: 'manual' },
         }));
+        recordAudit('application', id, 'status_changed', { to: status });
       },
       reorderInStatus: (status, orderedIds) => {
         const indexById = new Map(orderedIds.map((id, index) => [id, index]));
@@ -181,6 +185,7 @@ export const useAppsStore = create<AppsState>()(
           ),
           statusSortMode: { ...state.statusSortMode, [status]: 'manual' },
         }));
+        recordAudit('application', status, 'reordered', { count: orderedIds.length });
       },
       setStatusSortMode: (status, mode) => {
         set((state) => ({ statusSortMode: { ...state.statusSortMode, [status]: mode } }));
@@ -212,6 +217,7 @@ export const useAppsStore = create<AppsState>()(
             app.id === applicationId ? bump(app) : app,
           ),
         }));
+        recordAudit('application', applicationId, 'comment_added');
       },
       addToWishlist: (input, source = 'Jobs') => {
         const sourceId = listingId(input);
@@ -268,10 +274,17 @@ export const useAppsStore = create<AppsState>()(
             },
           },
         }));
+        recordAudit('application', app.id, 'wishlist_added', { source, sourceId });
         return app;
       },
       applyCard: (id, docs) => {
         const resume = useProfileStore.getState().resumes.find((item) => item.id === docs.resumeId);
+        const targetApp = get().applications.find((app) => app.id === id);
+        const required =
+          targetApp?.requirements && targetApp.requirements.length > 0
+            ? targetApp.requirements
+            : (targetApp?.tags ?? []);
+        const nice = targetApp?.tags?.filter((tag) => !required.includes(tag)) ?? [];
         set((state) => ({
           applications: state.applications.map((app) =>
             app.id === id
@@ -292,8 +305,8 @@ export const useAppsStore = create<AppsState>()(
                   coverLetterId: docs.coverLetterId,
                   ats: computeAts({
                     resumeKeywords: resume.keywords,
-                    required: ['TypeScript', 'React', 'Distributed systems'],
-                    nice: ['Observability', 'Kafka'],
+                    required,
+                    nice,
                   }),
                 },
               }
@@ -312,6 +325,10 @@ export const useAppsStore = create<AppsState>()(
         useProfileStore.getState().incrementResumeUse(docs.resumeId);
         if (docs.coverLetterId)
           useProfileStore.getState().incrementCoverLetterUse(docs.coverLetterId);
+        recordAudit('application', id, 'application_submitted', {
+          resumeId: docs.resumeId,
+          coverLetterId: docs.coverLetterId,
+        });
       },
       reset: () => {
         const fresh = seedAll();
@@ -321,10 +338,13 @@ export const useAppsStore = create<AppsState>()(
           appDocs: fresh.appDocs,
           statusSortMode: fresh.statusSortMode,
         });
+        recordAudit('demo', 'apps', 'reset');
       },
     }),
     {
       name: 'jobtracker:apps:v1',
+      version: 1,
+      skipHydration: true,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         applications: state.applications,
@@ -332,6 +352,7 @@ export const useAppsStore = create<AppsState>()(
         appDocs: state.appDocs,
         statusSortMode: state.statusSortMode,
       }),
+      migrate: (persistedState) => persistedState as AppsState,
     },
   ),
 );

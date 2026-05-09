@@ -110,11 +110,11 @@ function CompanyCard({ company }: { company: CompanyRow }) {
               {company.industry} · {company.hq}
             </p>
           </div>
-          <div className="pick__match">
+          <div className="pick__match" data-demo-data="true">
             <span className="pick__match-num">
               <Icon name="star" size={13} /> {company.rating}
             </span>
-            <span>Glassdoor demo</span>
+            <span>Glassdoor (demo)</span>
           </div>
         </div>
         <p>

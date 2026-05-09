@@ -102,8 +102,10 @@ export type Education = {
   to: string;
   detail: string;
 };
-export type Skill = { name: string; level: number; years: number; endorsements: number };
-export type Language = { name: string; level: string };
+export type SkillLevel = 1 | 2 | 3 | 4 | 5;
+export type Skill = { name: string; level: SkillLevel; years: number; endorsements: number };
+export type LanguageLevel = 'Native' | 'Conversational' | 'Beginner';
+export type Language = { name: string; level: LanguageLevel };
 export type Cert = { name: string; issuer: string; when: string };
 export type ProfileCompletenessSection = { id: string; label: string; done: boolean };
 export type Profile = Audited & {
@@ -176,7 +178,7 @@ export type Application = Audited & {
   nextActionDue?: IsoDate;
   rejectedReason?: string;
   offer?: { base: number; bonus: number; equity: number; total: number };
-  sourceListingId: string | null;
+  sourceListingId: Uuid | null;
   sortIndex: number;
   archivedAt: IsoDateTime | null;
 };

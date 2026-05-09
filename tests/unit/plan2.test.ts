@@ -53,12 +53,12 @@ describe('Plan 2 wishlist creation', () => {
 
     expect(first.id).toBe(second.id);
     expect(first.status).toBe('wishlist');
-    expect(first.sourceListingId).toBe('JL-101');
+    expect(first.sourceListingId).toBe(listing!.id);
     expect(first.role).toBe('Software Engineer, Search');
 
     const copies = useAppsStore
       .getState()
-      .applications.filter((app) => app.sourceListingId === 'JL-101');
+      .applications.filter((app) => app.sourceListingId === listing!.id);
     expect(copies).toHaveLength(1);
     expect(useAppsStore.getState().activity[first.id]?.history[0]?.text).toContain(
       'Added to wishlist from Jobs',

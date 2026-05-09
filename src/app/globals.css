@@ -1579,3 +1579,171 @@ a {
     grid-template-columns: 1fr;
   }
 }
+
+/* DemoOnly Radix Tooltip */
+.demo-tooltip {
+  background: var(--elevated);
+  color: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-size: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  user-select: none;
+  z-index: 60;
+}
+.demo-tooltip__arrow {
+  fill: var(--elevated);
+}
+[data-demo-only='true'] {
+  position: relative;
+}
+
+/* Confirm dialog */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 70;
+}
+.confirm-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 22px;
+  width: min(420px, 90vw);
+  z-index: 71;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+}
+.confirm-dialog__title {
+  margin: 0 0 8px;
+  color: var(--white);
+  font-size: 18px;
+}
+.confirm-dialog__desc {
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.confirm-dialog__actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+.card-cta.is-danger {
+  color: var(--error);
+  border-color: var(--error);
+}
+.card-cta.is-tiny {
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+/* Research section heads + momentum */
+.section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.section-head h3 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--white);
+}
+.section-head small.muted {
+  color: var(--muted);
+  font-size: 12px;
+}
+.momentum-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 8px 0 12px;
+}
+.momentum-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px;
+  background: var(--elevated);
+  border-radius: var(--radius-sm);
+}
+.momentum-stat strong {
+  font-size: 22px;
+  color: var(--white);
+}
+.momentum-stat span.is-up {
+  color: var(--success);
+  font-size: 11px;
+}
+.momentum-stat span.is-down {
+  color: var(--error);
+  font-size: 11px;
+}
+
+/* Profile additions */
+.completeness-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.doc-row__keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+.activity-log {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.activity-log li {
+  font-size: 13px;
+  color: var(--body);
+}
+
+/* Error panel */
+.error-panel {
+  max-width: 520px;
+  margin: 64px auto;
+  padding: 28px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.error-panel__icon {
+  color: var(--error);
+}
+.error-panel__title {
+  margin: 0;
+  color: var(--white);
+  font-size: 22px;
+}
+.error-panel__msg {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.error-panel__actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+

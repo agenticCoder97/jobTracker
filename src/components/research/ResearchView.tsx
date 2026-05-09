@@ -22,6 +22,7 @@ export function ResearchView() {
   const applications = useAppsStore((state) => state.applications);
   const openApps = applications.filter((app) => app.status !== 'rejected').length;
   const offers = applications.filter((app) => app.status === 'offer').length;
+  const applied = applications.filter((app) => app.status === 'applied').length;
   return (
     <AppShell>
       <main className="scroll-view research-view">
@@ -42,11 +43,14 @@ export function ResearchView() {
               <Icon name="travel_explore" size={14} /> Review picks
             </Link>
           </div>
-          <div className="panel">
-            <h2>Your search momentum</h2>
-            <p>
-              {openApps} active applications · {offers} offer in flight · 3 warm referral paths
-            </p>
+          <div className="panel" data-demo-data="true">
+            <SectionHead title="Your search momentum" sub="Last 14 days · demo data" />
+            <div className="momentum-grid">
+              <MomentumStat label="Applied" value={`${applied}`} delta="+3" />
+              <MomentumStat label="Response rate" value="42%" delta="+8pt" />
+              <MomentumStat label="Active loops" value={`${openApps}`} delta="-1" down />
+              <MomentumStat label="Median days to reply" value="5.2" delta="-1.8" />
+            </div>
             <DemoOnly className="card-cta" label="Tune preferences">
               <Icon name="tune" size={12} /> Tune preferences
             </DemoOnly>
@@ -54,7 +58,15 @@ export function ResearchView() {
         </section>
 
         <section id="daily-picks" className="view-section">
-          <h2>Today&apos;s picks for you</h2>
+          <SectionHead
+            title="Today's picks for you"
+            sub={`${DAILY_PICKS.length} picks · refreshed daily`}
+            right={
+              <DemoOnly className="card-cta" label="See all matches">
+                See all 47 matches →
+              </DemoOnly>
+            }
+          />
           <div className="companies-grid">
             {DAILY_PICKS.map((pick) => (
               <PickCard key={pick.id} pick={pick} />
@@ -62,8 +74,16 @@ export function ResearchView() {
           </div>
         </section>
 
-        <section className="view-section">
-          <h2>Pipeline analytics</h2>
+        <section className="view-section" data-demo-data="true">
+          <SectionHead
+            title="Pipeline analytics"
+            sub="Demo data — based on seed snapshot"
+            right={
+              <DemoOnly className="card-cta" label="Detailed report">
+                Detailed report →
+              </DemoOnly>
+            }
+          />
           <div className="kpi-grid">
             <Kpi title="Open applications" value={`${openApps}`} meta="+2 vs last week" />
             <Kpi title="Avg time to response" value="6.4d" meta="flat" />
@@ -72,9 +92,9 @@ export function ResearchView() {
           </div>
         </section>
 
-        <section className="view-section two-col">
+        <section className="view-section two-col" data-demo-data="true">
           <div className="panel">
-            <h2>Total comp by level</h2>
+            <SectionHead title="Total comp by level" sub="Demo market data" />
             {MARKET_SALARIES.map((item) => (
               <Bar
                 key={item.lvl}
@@ -87,7 +107,15 @@ export function ResearchView() {
             ))}
           </div>
           <div className="panel">
-            <h2>Skill demand</h2>
+            <SectionHead
+              title="Skill demand"
+              sub="Demo market data"
+              right={
+                <DemoOnly className="card-cta" label="Change market trend role">
+                  <Icon name="swap_horiz" size={12} /> Change role ↓
+                </DemoOnly>
+              }
+            />
             {MARKET_SKILLS.map((item) => (
               <Bar
                 key={item.name}
@@ -98,16 +126,14 @@ export function ResearchView() {
                 suffix="%"
               />
             ))}
-            <DemoOnly className="card-cta" label="Change market trend role">
-              <Icon name="swap_horiz" size={12} /> Change role
-            </DemoOnly>
           </div>
         </section>
 
-        <section className="view-section">
-          <h2>
-            LinkedIn signals <span>Demo data - no LinkedIn integration in v1</span>
-          </h2>
+        <section className="view-section" data-demo-data="true">
+          <SectionHead
+            title="LinkedIn signals"
+            sub="Demo data — no LinkedIn integration in v1"
+          />
           <div className="three-col">
             <SocialPanel
               title="People to connect with"
@@ -128,7 +154,15 @@ export function ResearchView() {
         </section>
 
         <section className="view-section">
-          <h2>Watched companies</h2>
+          <SectionHead
+            title="Watched companies"
+            sub={`${COMPANIES_WATCH.length} watched`}
+            right={
+              <DemoOnly className="card-cta" label="Manage watchlist">
+                Manage list →
+              </DemoOnly>
+            }
+          />
           <div className="watched-grid">
             {COMPANIES_WATCH.map((item) => (
               <Link key={item.company} className="watched-card" href={`/company/${item.company}`}>
@@ -147,6 +181,46 @@ export function ResearchView() {
         </section>
       </main>
     </AppShell>
+  );
+}
+
+function SectionHead({
+  title,
+  sub,
+  right,
+}: {
+  title: string;
+  sub?: string;
+  right?: React.ReactNode;
+}) {
+  return (
+    <div className="section-head">
+      <div>
+        <h3>{title}</h3>
+        {sub ? <small className="muted">{sub}</small> : null}
+      </div>
+      {right ? <div className="section-head__right">{right}</div> : null}
+    </div>
+  );
+}
+
+function MomentumStat({
+  label,
+  value,
+  delta,
+  down,
+}: {
+  label: string;
+  value: string;
+  delta: string;
+  down?: boolean;
+}) {
+  return (
+    <div className="momentum-stat">
+      <small>{label}</small>
+      <strong>{value}</strong>
+      <span className={down ? 'is-down' : 'is-up'}>{delta}</span>
+    </div>
   );
 }
 
@@ -197,6 +271,9 @@ function PickCard({ pick }: { pick: DailyPick }) {
         </button>
         <DemoOnly className="card-cta" label={`Open ${pick.role}`}>
           Open
+        </DemoOnly>
+        <DemoOnly className="icon-btn" label={`Dismiss ${pick.role}`}>
+          <Icon name="x" size={14} />
         </DemoOnly>
       </div>
     </article>

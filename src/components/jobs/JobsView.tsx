@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CompanyLogo, Icon } from '@/components/jobtracker/JobTrackerApp';
 import { AppShell } from '@/components/layout/AppShell';
 import { JOB_LISTINGS, STATUSES } from '@/lib/data/seed';
@@ -64,6 +64,15 @@ function JobsFilterBar({
   params: JobsParamsHook;
 }) {
   const [draft, setDraft] = useState(params.q);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    setDraft(params.q);
+  }, [params.q]);
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
   const scopes = [
     { id: 'all', label: 'All', count: counts.all },
     { id: 'tracked', label: 'On my board', count: counts.tracked },
@@ -80,8 +89,10 @@ function JobsFilterBar({
           placeholder="Search role, company, location, tag..."
           value={draft}
           onChange={(event) => {
-            setDraft(event.target.value);
-            window.setTimeout(() => params.setParams({ q: event.target.value }), 200);
+            const next = event.target.value;
+            setDraft(next);
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+            debounceRef.current = setTimeout(() => params.setParams({ q: next }), 200);
           }}
         />
       </div>

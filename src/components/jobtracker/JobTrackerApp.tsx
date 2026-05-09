@@ -22,12 +22,14 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { DemoOnly } from '@/components/ui/DemoOnly';
 import { COMPANIES, STATUSES, TEAM } from '@/lib/data/seed';
 import { resolveIcon } from '@/lib/icon-map';
 import { useAppsStore } from '@/lib/store/apps-store';
 import { useNotificationsStore } from '@/lib/store/notifications-store';
 import { useProfileStore } from '@/lib/store/profile-store';
+import { useHydration } from '@/lib/store/use-hydration';
 import { useUiStore, type FilterId } from '@/lib/store/ui-store';
 import { daysFrom, fmtDate } from '@/lib/utils/dates';
 import { gradeFor } from '@/lib/utils/ats';
@@ -59,12 +61,14 @@ const tabs = [
 type DetailTab = (typeof tabs)[number]['id'];
 
 export function JobTrackerApp({ initialCardDisplayId }: JobTrackerAppProps) {
-  const hydrated = true;
+  const hydrated = useHydration();
   return (
     <div className="app-shell">
       <TopBar />
       <main className="board">{hydrated ? <BoardView /> : <BoardSkeleton />}</main>
-      {initialCardDisplayId ? <CardDetailDialog displayId={initialCardDisplayId} /> : null}
+      {hydrated && initialCardDisplayId ? (
+        <CardDetailDialog displayId={initialCardDisplayId} />
+      ) : null}
       <ToastHost />
     </div>
   );
@@ -636,12 +640,16 @@ function Column({
         <span className="column__dot" style={{ background: status.dot }} />
         <span className="column__title">{status.title}</span>
         <span className="column__count">{items.length}</span>
-        <button
-          className="icon-btn"
-          style={{ width: 22, height: 22, borderRadius: 'var(--radius-sm)' }}
-        >
-          <Icon name="more-horizontal" size={14} />
-        </button>
+        <DemoOnly label={`${status.title} column actions`} asChild>
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label={`${status.title} column actions`}
+            style={{ width: 22, height: 22, borderRadius: 'var(--radius-sm)' }}
+          >
+            <Icon name="more-horizontal" size={14} />
+          </button>
+        </DemoOnly>
       </div>
       <div className="column__list">
         <SortableContext
@@ -770,15 +778,50 @@ export function CardDetailDialog({ displayId }: { displayId: string }) {
   const application = useAppsStore((state) => state.getByDisplayId(displayId));
   const updateApp = useAppsStore((state) => state.updateApp);
   const [tab, setTab] = useState<DetailTab>('overview');
+  const hadInAppHistoryRef = useRef(false);
+  useEffect(() => {
+    hadInAppHistoryRef.current =
+      typeof window !== 'undefined' &&
+      typeof window.history !== 'undefined' &&
+      window.history.length > 1;
+  }, []);
+
+  function close() {
+    if (hadInAppHistoryRef.current) {
+      router.back();
+    } else {
+      router.replace('/');
+    }
+  }
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key === 'Escape') close();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!application) {
     return (
-      <div className="modal-backdrop">
-        <div className="modal" role="dialog" aria-modal="true">
+      <div className="modal-backdrop" role="presentation" onMouseDown={close}>
+        <div
+          className="modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="card-detail-not-found-title"
+          onMouseDown={(event) => event.stopPropagation()}
+        >
           <div className="modal__main">
             <div className="empty-state">
-              <h1 style={{ marginTop: 0, color: 'var(--white)' }}>Card not found</h1>
-              <button className="astral-gold-btn" onClick={() => router.push('/')}>
+              <h1 id="card-detail-not-found-title" style={{ marginTop: 0, color: 'var(--white)' }}>
+                Card not found
+              </h1>
+              <p style={{ color: 'var(--muted)' }}>
+                The application <strong>{displayId}</strong> doesn&apos;t exist or was removed.
+              </p>
+              <button className="astral-gold-btn" onClick={close}>
                 Close
               </button>
             </div>
@@ -788,16 +831,13 @@ export function CardDetailDialog({ displayId }: { displayId: string }) {
     );
   }
 
-  function close() {
-    router.push('/');
-  }
-
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={close}>
       <div
         className="modal"
         role="dialog"
         aria-modal="true"
+        aria-labelledby="card-detail-title"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="modal__head">
@@ -825,16 +865,20 @@ export function CardDetailDialog({ displayId }: { displayId: string }) {
               <Icon name="rocket" size={14} /> Apply now
             </button>
           ) : null}
-          {['eye', 'star', 'share-2', 'archive', 'more-horizontal'].map((icon) => (
-            <button
-              key={icon}
-              className="icon-btn"
-              onClick={() =>
-                useUiStore.getState().pushToast({ kind: 'info', message: 'Demo only control.' })
-              }
-            >
-              <Icon name={icon} />
-            </button>
+          {(
+            [
+              { icon: 'eye', label: 'Watch' },
+              { icon: 'star', label: 'Star' },
+              { icon: 'share-2', label: 'Share' },
+              { icon: 'archive', label: 'Archive' },
+              { icon: 'more-horizontal', label: 'More actions' },
+            ] as const
+          ).map(({ icon, label }) => (
+            <DemoOnly key={icon} label={label} asChild>
+              <button type="button" className="icon-btn" aria-label={label}>
+                <Icon name={icon} />
+              </button>
+            </DemoOnly>
           ))}
           <button className="icon-btn" aria-label="Close" onClick={close}>
             <Icon name="x" />
@@ -843,9 +887,13 @@ export function CardDetailDialog({ displayId }: { displayId: string }) {
         <div className="modal__body">
           <div className="modal__main">
             <h1
+              id="card-detail-title"
               className="modal__title"
               contentEditable
               suppressContentEditableWarning
+              role="textbox"
+              aria-multiline="false"
+              aria-label="Role title"
               onBlur={(event) =>
                 updateApp(
                   application.id,
@@ -1124,16 +1172,18 @@ function ActivityTab({ application }: { application: Application }) {
         />
         <div className="row-center" style={{ justifyContent: 'space-between' }}>
           <div className="row-center" style={{ gap: 4 }}>
-            {['paperclip', 'at-sign', 'smile'].map((icon) => (
-              <button
-                key={icon}
-                className="icon-btn"
-                onClick={() =>
-                  useUiStore.getState().pushToast({ kind: 'info', message: 'Demo only control.' })
-                }
-              >
-                <Icon name={icon} />
-              </button>
+            {(
+              [
+                { icon: 'paperclip', label: 'Attach file to comment' },
+                { icon: 'at-sign', label: 'Mention teammate' },
+                { icon: 'smile', label: 'Insert emoji' },
+              ] as const
+            ).map(({ icon, label }) => (
+              <DemoOnly key={icon} label={label} asChild>
+                <button type="button" className="icon-btn" aria-label={label}>
+                  <Icon name={icon} />
+                </button>
+              </DemoOnly>
             ))}
           </div>
           <button className="astral-gold-btn" disabled={!text.trim()} onClick={submit}>

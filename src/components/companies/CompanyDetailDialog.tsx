@@ -85,7 +85,7 @@ export function CompanyDetailDialog({ companyId }: { companyId: string }) {
               </DemoOnly>
             </div>
 
-            <div className="kpi-grid">
+            <div className="kpi-grid" data-demo-data="true">
               <Kpi title="Glassdoor rating" value={`${detail.rating}`} meta="Demo data" />
               <Kpi title="CEO approval" value={`${detail.ceoApproval}%`} meta="Demo data" />
               <Kpi title="Median comp" value={`$${detail.medianComp}K`} meta="Demo data" />
@@ -150,8 +150,8 @@ export function CompanyDetailDialog({ companyId }: { companyId: string }) {
               </div>
             </section>
 
-            <section className="modal__section">
-              <h4>Recent employee reviews · Demo data - not from a real review source</h4>
+            <section className="modal__section" data-demo-data="true">
+              <h4>Recent employee reviews · Demo data — no integration in v1</h4>
               {[
                 [
                   'Best engineering culture I have experienced',
