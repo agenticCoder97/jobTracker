@@ -48,6 +48,39 @@ export type EventLogRepository = {
   reset: () => void;
 };
 
+/** Outbound HTTP call to an external provider. Persisted to `api_call_log`. */
+export type ApiCallLogRow = {
+  id: Uuid;
+  providerId: string;
+  requestPath: string;
+  httpStatus: number;
+  latencyMs: number;
+  rateLimitRemaining?: number | undefined;
+  ownerUserId?: Uuid | undefined;
+  error?: string | undefined;
+  createdAt: IsoDateTime;
+};
+
+export type ApiCallLogRepository = {
+  append: (input: Omit<ApiCallLogRow, 'id' | 'createdAt'>) => Promise<ApiCallLogRow>;
+  list: (filter?: { providerId?: string; limit?: number }) => Promise<ApiCallLogRow[]>;
+};
+
+/** Client-side telemetry event. Persisted to `user_actions`. */
+export type UserActionRow = {
+  id: Uuid;
+  ownerUserId?: Uuid | undefined;
+  kind: string;
+  target?: string | undefined;
+  metadata?: Record<string, unknown> | undefined;
+  occurredAt: IsoDateTime;
+};
+
+export type UserActionRepository = {
+  append: (input: Omit<UserActionRow, 'id' | 'occurredAt'>) => Promise<UserActionRow>;
+  list: (filter?: { ownerUserId?: string; limit?: number }) => Promise<UserActionRow[]>;
+};
+
 /** Strip forbidden keys (defence-in-depth before storage / external sinks). */
 export function redactMetadata<T extends Record<string, unknown> | undefined>(
   metadata: T,
