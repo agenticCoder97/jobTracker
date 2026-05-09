@@ -5,6 +5,7 @@ import type {
   AppDocs,
   Application,
   Attachment,
+  CompanyWatch,
   Company,
   CompanyDetail,
   Comment,
@@ -12,7 +13,13 @@ import type {
   DailyPick,
   HistoryEvent,
   JobListing,
+  LinkedInEvent,
+  LinkedInInMail,
+  LinkedInPerson,
+  MarketSalary,
+  MarketSkill,
   Notification,
+  Profile,
   Resume,
   Status,
   StatusId,
@@ -1334,6 +1341,262 @@ export const DAILY_PICKS: DailyPick[] = [
     posted: '1 day ago',
     applicants: '<10',
   },
+  {
+    id: 'p3',
+    company: 'cloudflare',
+    role: 'Senior Engineer, Workers',
+    location: 'Remote (US)',
+    salary: '$210-$280K + public',
+    match: 86,
+    why: ['Edge runtime experience', 'Remote-first match'],
+    posted: '3 days ago',
+    applicants: '50+',
+  },
+  {
+    id: 'p4',
+    company: 'pinecone',
+    role: 'Senior Backend Engineer',
+    location: 'Remote (Global)',
+    salary: '$200-$270K + 0.05-0.15%',
+    match: 84,
+    why: ['Distributed systems strong fit', 'Vector search aligns with AI focus'],
+    posted: '4 days ago',
+    applicants: '11-50',
+  },
+  {
+    id: 'p5',
+    company: 'brex',
+    role: 'Senior Engineer, Card Platform',
+    location: 'New York - Hybrid',
+    salary: '$220-$290K + 0.04-0.10%',
+    match: 82,
+    why: ['Fintech overlap with Ramp loop', 'NYC option'],
+    posted: '1 day ago',
+    applicants: '11-50',
+  },
+  {
+    id: 'p6',
+    company: 'retool',
+    role: 'Senior Software Engineer, Editor',
+    location: 'San Francisco - Hybrid',
+    salary: '$215-$285K + 0.05-0.12%',
+    match: 79,
+    why: ['Editor canvas work', 'Strong product team match'],
+    posted: '5 days ago',
+    applicants: '11-50',
+  },
+];
+
+export const PROFILE: Profile = {
+  ...audited('profile-you', 2),
+  name: 'You',
+  handle: '@youruser',
+  email: 'you@example.com',
+  phone: '+1 (415) 555-0142',
+  location: 'San Francisco Bay Area',
+  pronouns: 'they/them',
+  headline: 'Senior Software Engineer - Distributed systems and developer tools',
+  about:
+    'Senior software engineer with 8 years building developer-facing infrastructure. I care about latency budgets, observable systems, and API surfaces that make the next engineer more effective.\n\nLooking for a senior or staff role at a company that ships frequently, takes craft seriously, and has a clear product thesis.',
+  links: [
+    { label: 'LinkedIn', url: 'linkedin.com/in/you', icon: 'link' },
+    { label: 'GitHub', url: 'github.com/you', icon: 'git-branch' },
+    { label: 'Portfolio', url: 'you.dev', icon: 'globe' },
+  ],
+  openToWork: true,
+  preferences: {
+    roles: ['Senior Software Engineer', 'Staff Software Engineer', 'Founding Engineer'],
+    remote: ['Remote', 'Hybrid (SF Bay)'],
+    minComp: 240,
+    industries: ['Developer Tools', 'AI / ML Infrastructure', 'Fintech', 'Productivity SaaS'],
+    avoid: ['Crypto', 'Adtech'],
+    notice: '4 weeks',
+  },
+  experience: [
+    {
+      id: 'exp1',
+      company: 'datadog',
+      role: 'Senior Software Engineer - Logs Pipeline',
+      from: 'Mar 2023',
+      to: 'Present',
+      dur: '3 yrs',
+      location: 'New York - Remote',
+      bullets: [
+        'Own ingestion path for high-volume event streams.',
+        'Designed cross-region failover for staging hub and promoted it to production.',
+        'Mentor mid-level engineers and maintain incident-review templates.',
+      ],
+    },
+    {
+      id: 'exp2',
+      company: 'stripe',
+      role: 'Software Engineer - Payments API',
+      from: 'Jul 2020',
+      to: 'Feb 2023',
+      dur: '2 yrs 8 mo',
+      location: 'San Francisco - Hybrid',
+      bullets: [
+        'Built idempotency layer for v2 of the Charges API.',
+        'Owned platform work for an Apple Pay launch.',
+      ],
+    },
+  ],
+  education: [
+    {
+      id: 'ed1',
+      school: 'University of Waterloo',
+      degree: 'B.Math, Computer Science',
+      from: '2014',
+      to: '2018',
+      detail: "Dean's List - Co-op stream",
+    },
+  ],
+  skills: [
+    { name: 'Go', level: 5, years: 6, endorsements: 32 },
+    { name: 'TypeScript', level: 5, years: 8, endorsements: 41 },
+    { name: 'Distributed systems', level: 5, years: 6, endorsements: 27 },
+    { name: 'React', level: 4, years: 6, endorsements: 19 },
+    { name: 'Observability', level: 5, years: 4, endorsements: 24 },
+    { name: 'System design', level: 5, years: 6, endorsements: 38 },
+  ],
+  languages: [
+    { name: 'English', level: 'Native' },
+    { name: 'Spanish', level: 'Conversational' },
+  ],
+  certifications: [
+    {
+      name: 'AWS Certified Solutions Architect - Associate',
+      issuer: 'AWS',
+      when: 'Issued Jan 2023',
+    },
+    { name: 'Kubernetes CKA', issuer: 'CNCF', when: 'Issued Sep 2021' },
+  ],
+  achievements: [
+    'Speaker - QCon SF 2024: Backpressure as a product feature',
+    "Author - O'Reilly chapter on observability for high-throughput pipelines",
+  ],
+  completeness: {
+    sections: [
+      { id: 'about', label: 'About', done: true },
+      { id: 'experience', label: 'Experience', done: true },
+      { id: 'education', label: 'Education', done: true },
+      { id: 'skills', label: 'Skills (12+)', done: true },
+      { id: 'links', label: 'External links', done: true },
+      { id: 'preferences', label: 'Search preferences', done: true },
+      { id: 'photo', label: 'Profile photo', done: false },
+      { id: 'video', label: 'Intro video', done: false },
+    ],
+  },
+};
+
+export const MARKET_SALARIES: MarketSalary[] = [
+  { lvl: 'Mid (L3)', comp: 165, hi: false },
+  { lvl: 'Senior (L4)', comp: 215, hi: false },
+  { lvl: 'Senior+ (L5)', comp: 270, hi: true },
+  { lvl: 'Staff', comp: 340, hi: false },
+  { lvl: 'Sr Staff', comp: 420, hi: false },
+  { lvl: 'Principal', comp: 510, hi: false },
+];
+
+export const MARKET_SKILLS: MarketSkill[] = [
+  { name: 'TypeScript / React', weight: 92, delta: '+6%' },
+  { name: 'Python', weight: 78, delta: '+4%' },
+  { name: 'LLM / Agents', weight: 71, delta: '+38%' },
+  { name: 'Distributed systems', weight: 68, delta: '+2%' },
+  { name: 'Rust', weight: 42, delta: '+11%' },
+  { name: 'iOS / Swift', weight: 28, delta: '-3%', down: true },
+];
+
+export const LINKEDIN_SUGGESTED: LinkedInPerson[] = [
+  {
+    id: 'l1',
+    name: 'Aliyah Chen',
+    title: 'Engineering Manager - Ramp',
+    mutual: '3 mutual',
+    color: '#FF8FA3',
+  },
+  {
+    id: 'l2',
+    name: 'Jordan Park',
+    title: 'Staff Engineer - Stripe',
+    mutual: '7 mutual',
+    color: '#5AB7FF',
+  },
+  {
+    id: 'l3',
+    name: 'Sana Iyer',
+    title: 'Recruiting - Notion',
+    mutual: '2 mutual',
+    color: '#0ACF83',
+  },
+  {
+    id: 'l4',
+    name: 'Theo Albrecht',
+    title: 'Head of Product - Cursor',
+    mutual: '1 mutual',
+    color: '#C9A84C',
+  },
+];
+
+export const LINKEDIN_INMAIL: LinkedInInMail[] = [
+  {
+    id: 'm1',
+    name: 'Rae Okafor',
+    title: 'Sourcer - Anthropic',
+    preview: 'We would love to chat about a Sr SWE role on the Claude Code team.',
+    when: '3h',
+    color: '#D97757',
+  },
+  {
+    id: 'm2',
+    name: 'Felix Tan',
+    title: 'Recruiter - Vercel',
+    preview: 'Edge Runtime team is opening senior roles.',
+    when: '1d',
+    color: '#0A0A0B',
+  },
+  {
+    id: 'm3',
+    name: 'Mira Halevi',
+    title: 'Recruiter - Datadog',
+    preview: 'Following up on your application.',
+    when: '2d',
+    color: '#7C3AED',
+  },
+];
+
+export const LINKEDIN_EVENTS: LinkedInEvent[] = [
+  {
+    id: 'e1',
+    month: 'May',
+    day: '12',
+    title: 'AI Engineer World Fair - SF',
+    meta: 'In-person - 2.4K attending',
+  },
+  {
+    id: 'e2',
+    month: 'May',
+    day: '20',
+    title: 'Frontend Nation 2026',
+    meta: 'Virtual - Vercel, Figma speaking',
+  },
+  {
+    id: 'e3',
+    month: 'Jun',
+    day: '03',
+    title: 'Bay Area Backend Meetup',
+    meta: 'In-person - Stripe HQ',
+  },
+];
+
+export const COMPANIES_WATCH: CompanyWatch[] = [
+  { company: 'anthropic', name: 'Anthropic', meta: '+2 new roles this week', count: 12 },
+  { company: 'stripe', name: 'Stripe', meta: '5 roles match your filters', count: 5 },
+  { company: 'figma', name: 'Figma', meta: '+1 staff-level opening', count: 3 },
+  { company: 'ramp', name: 'Ramp', meta: "You're interviewing", count: 1 },
+  { company: 'linear', name: 'Linear', meta: 'No new roles', count: 2 },
+  { company: 'cursor', name: 'Cursor', meta: '+3 new roles', count: 7 },
+  { company: 'cloudflare', name: 'Cloudflare', meta: '+2 new roles', count: 9 },
 ];
 
 export type SortMode = 'manual' | 'lastActivity' | 'priority' | 'dateApplied';
@@ -1348,6 +1611,13 @@ export function seedAll(): {
   companyDetails: Record<string, CompanyDetail>;
   jobListings: JobListing[];
   dailyPicks: DailyPick[];
+  profile: Profile;
+  marketSalaries: MarketSalary[];
+  marketSkills: MarketSkill[];
+  linkedinSuggested: LinkedInPerson[];
+  linkedinInMail: LinkedInInMail[];
+  linkedinEvents: LinkedInEvent[];
+  companiesWatch: CompanyWatch[];
   statusSortMode: Record<StatusId, SortMode>;
 } {
   return {
@@ -1360,6 +1630,13 @@ export function seedAll(): {
     companyDetails: structuredClone(COMPANY_DETAILS),
     jobListings: structuredClone(JOB_LISTINGS),
     dailyPicks: structuredClone(DAILY_PICKS),
+    profile: structuredClone(PROFILE),
+    marketSalaries: structuredClone(MARKET_SALARIES),
+    marketSkills: structuredClone(MARKET_SKILLS),
+    linkedinSuggested: structuredClone(LINKEDIN_SUGGESTED),
+    linkedinInMail: structuredClone(LINKEDIN_INMAIL),
+    linkedinEvents: structuredClone(LINKEDIN_EVENTS),
+    companiesWatch: structuredClone(COMPANIES_WATCH),
     statusSortMode: {
       wishlist: 'lastActivity',
       applied: 'lastActivity',

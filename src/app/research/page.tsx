@@ -1,10 +1,5 @@
-import { PlaceholderApp } from '@/components/jobtracker/JobTrackerApp';
+import { ResearchView } from '@/components/research/ResearchView';
 
 export default function ResearchPage() {
-  return (
-    <PlaceholderApp
-      title="Research ships in Plan 3"
-      description="Plan 3 implements daily picks, research analytics, market trends, LinkedIn demo cards, watched companies, and add-to-wishlist from Research."
-    />
-  );
+  return <ResearchView />;
 }
