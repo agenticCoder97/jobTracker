@@ -1,6 +1,21 @@
 'use client';
 
 import {
+  Airbnb,
+  AnthropicDark,
+  Cloudflare,
+  CursorDark,
+  Datadog,
+  Figma,
+  Linear,
+  Notion,
+  OpenAIDark,
+  PerplexityAI,
+  Shopify,
+  Stripe,
+  VercelDark,
+} from '@ridemountainpig/svgl-react';
+import {
   DndContext,
   KeyboardSensor,
   PointerSensor,
@@ -22,7 +37,16 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+  type CSSProperties,
+  type ReactNode,
+  type SVGProps,
+} from 'react';
 import { DemoOnly } from '@/components/ui/DemoOnly';
 import { COMPANIES, STATUSES, TEAM } from '@/lib/data/seed';
 import { resolveIcon } from '@/lib/icon-map';
@@ -30,7 +54,7 @@ import { useAppsStore } from '@/lib/store/apps-store';
 import { useNotificationsStore } from '@/lib/store/notifications-store';
 import { useProfileStore } from '@/lib/store/profile-store';
 import { useHydration } from '@/lib/store/use-hydration';
-import { useUiStore, type FilterId } from '@/lib/store/ui-store';
+import { useUiStore, type BoardSortMode, type FilterId } from '@/lib/store/ui-store';
 import { daysFrom, fmtDate } from '@/lib/utils/dates';
 import { gradeFor } from '@/lib/utils/ats';
 import { resolveOrder } from '@/lib/utils/sort-resolver';
@@ -59,6 +83,23 @@ const tabs = [
 ] as const;
 
 type DetailTab = (typeof tabs)[number]['id'];
+type SvgLogo = ComponentType<SVGProps<SVGSVGElement>>;
+
+const SVGL_LOGOS: Partial<Record<CompanyId, SvgLogo>> = {
+  airbnb: Airbnb,
+  anthropic: AnthropicDark,
+  cloudflare: Cloudflare,
+  cursor: CursorDark,
+  datadog: Datadog,
+  figma: Figma,
+  linear: Linear,
+  notion: Notion,
+  openai: OpenAIDark,
+  perplexity: PerplexityAI,
+  shopify: Shopify,
+  stripe: Stripe,
+  vercel: VercelDark,
+};
 
 export function JobTrackerApp({ initialCardDisplayId }: JobTrackerAppProps) {
   const hydrated = useHydration();
@@ -131,8 +172,26 @@ export function CompanyLogo({
 }) {
   const company = COMPANIES[companyId];
   if (!company) return null;
+  const Logo = SVGL_LOGOS[companyId];
+  if (Logo) {
+    return (
+      <span
+        aria-label={`${company.name} logo`}
+        className="app-card__logo is-svgl"
+        style={{
+          width: size,
+          height: size,
+          borderRadius: radius,
+        }}
+      >
+        <Logo aria-hidden="true" focusable="false" />
+      </span>
+    );
+  }
+
   return (
     <span
+      aria-label={`${company.name} logo`}
       className="app-card__logo"
       style={{
         width: size,
@@ -404,12 +463,19 @@ function NotificationsPopover() {
 
 function BoardView() {
   const applications = useAppsStore((state) => state.applications);
-  const statusSortMode = useAppsStore((state) => state.statusSortMode);
   const moveStatus = useAppsStore((state) => state.moveStatus);
   const reorderInStatus = useAppsStore((state) => state.reorderInStatus);
   const createCard = useAppsStore((state) => state.createCard);
   const boardFilter = useUiStore((state) => state.boardFilter);
   const setBoardFilter = useUiStore((state) => state.setBoardFilter);
+  const boardCompanyFilter = useUiStore((state) => state.boardCompanyFilter);
+  const setBoardCompanyFilter = useUiStore((state) => state.setBoardCompanyFilter);
+  const boardLocationFilter = useUiStore((state) => state.boardLocationFilter);
+  const setBoardLocationFilter = useUiStore((state) => state.setBoardLocationFilter);
+  const boardTagFilter = useUiStore((state) => state.boardTagFilter);
+  const setBoardTagFilter = useUiStore((state) => state.setBoardTagFilter);
+  const boardSortMode = useUiStore((state) => state.boardSortMode);
+  const setBoardSortMode = useUiStore((state) => state.setBoardSortMode);
   const viewMode = useUiStore((state) => state.viewMode);
   const setViewMode = useUiStore((state) => state.setViewMode);
   const router = useRouter();
@@ -426,8 +492,27 @@ function BoardView() {
 
   const counts = useMemo(() => computeFilterCounts(applications), [applications]);
   const filteredApplications = useMemo(
-    () => filterApplications(applications, boardFilter),
-    [applications, boardFilter],
+    () =>
+      filterApplications(applications, boardFilter, {
+        company: boardCompanyFilter,
+        location: boardLocationFilter,
+        tag: boardTagFilter,
+      }),
+    [applications, boardCompanyFilter, boardFilter, boardLocationFilter, boardTagFilter],
+  );
+  const companyOptions = useMemo(() => {
+    const companies = Array.from(new Set(applications.map((application) => application.company)));
+    return companies.sort((a, b) =>
+      (COMPANIES[a]?.name ?? a).localeCompare(COMPANIES[b]?.name ?? b),
+    );
+  }, [applications]);
+  const locationOptions = useMemo(
+    () => Array.from(new Set(applications.map((application) => application.location))).sort(),
+    [applications],
+  );
+  const tagOptions = useMemo(
+    () => Array.from(new Set(applications.flatMap((application) => application.tags))).sort(),
+    [applications],
   );
   const byStatus = useMemo(() => {
     const groups: Record<StatusId, Application[]> = {
@@ -440,10 +525,10 @@ function BoardView() {
     };
     for (const application of filteredApplications) groups[application.status].push(application);
     for (const status of STATUSES) {
-      groups[status.id] = resolveOrder(groups[status.id], statusSortMode[status.id]);
+      groups[status.id] = resolveOrder(groups[status.id], boardSortMode);
     }
     return groups;
-  }, [filteredApplications, statusSortMode]);
+  }, [boardSortMode, filteredApplications]);
 
   function addCard(status: StatusId) {
     const app = createCard(status);
@@ -481,9 +566,11 @@ function BoardView() {
         const oldIndex = currentIds.indexOf(activeId);
         const newIndex = currentIds.indexOf(overId ?? activeId);
         if (oldIndex >= 0 && newIndex >= 0 && oldIndex !== newIndex) {
+          setBoardSortMode('manual');
           reorderInStatus(targetStatus, arrayMove(currentIds, oldIndex, newIndex));
         }
       } else {
+        setBoardSortMode('manual');
         moveStatus(activeId, targetStatus);
       }
     }
@@ -518,19 +605,64 @@ function BoardView() {
             </button>
           ))}
           <span className="filter-divider" />
-          <button className="filter-group">
-            <Icon name="building-2" size={12} /> Company <Icon name="chevron-down" size={12} />
-          </button>
-          <button className="filter-group">
-            <Icon name="map-pin" size={12} /> Location <Icon name="chevron-down" size={12} />
-          </button>
-          <button className="filter-group">
-            <Icon name="tag" size={12} /> Tags <Icon name="chevron-down" size={12} />
-          </button>
-          <button className="filter-group">
-            <Icon name="arrow-down-up" size={12} /> Sort: Last activity{' '}
-            <Icon name="chevron-down" size={12} />
-          </button>
+          <label className={`filter-group ${boardCompanyFilter !== 'all' ? 'is-set' : ''}`}>
+            <Icon name="building-2" size={12} />
+            <select
+              aria-label="Filter by company"
+              value={boardCompanyFilter}
+              onChange={(event) => setBoardCompanyFilter(event.target.value)}
+            >
+              <option value="all">Company: All</option>
+              {companyOptions.map((companyId) => (
+                <option key={companyId} value={companyId}>
+                  {COMPANIES[companyId]?.name ?? companyId}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={`filter-group ${boardLocationFilter !== 'all' ? 'is-set' : ''}`}>
+            <Icon name="map-pin" size={12} />
+            <select
+              aria-label="Filter by location"
+              value={boardLocationFilter}
+              onChange={(event) => setBoardLocationFilter(event.target.value)}
+            >
+              <option value="all">Location: All</option>
+              {locationOptions.map((location) => (
+                <option key={location} value={location}>
+                  {location}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={`filter-group ${boardTagFilter !== 'all' ? 'is-set' : ''}`}>
+            <Icon name="tag" size={12} />
+            <select
+              aria-label="Filter by tag"
+              value={boardTagFilter}
+              onChange={(event) => setBoardTagFilter(event.target.value)}
+            >
+              <option value="all">Tags: All</option>
+              {tagOptions.map((tag) => (
+                <option key={tag} value={tag}>
+                  {tag}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="filter-group is-set">
+            <Icon name="arrow-down-up" size={12} />
+            <select
+              aria-label="Sort board"
+              value={boardSortMode}
+              onChange={(event) => setBoardSortMode(event.target.value as BoardSortMode)}
+            >
+              <option value="lastActivity">Sort: Last activity</option>
+              <option value="priority">Sort: Priority</option>
+              <option value="dateApplied">Sort: Applied date</option>
+              <option value="manual">Sort: Manual</option>
+            </select>
+          </label>
           <span className="view-toggle">
             {(['board', 'list', 'timeline'] as const).map((mode) => (
               <button
@@ -601,14 +733,29 @@ function computeFilterCounts(applications: Application[]): Record<FilterId, numb
   };
 }
 
-function filterApplications(applications: Application[], filter: FilterId): Application[] {
-  if (filter === 'high') return applications.filter((app) => app.priority === 'high');
-  if (filter === 'thisweek')
-    return applications.filter((app) => app.nextActionDue && daysFrom(app.nextActionDue) > -7);
-  if (filter === 'remote') return applications.filter((app) => app.remote === 'Remote');
-  if (filter === 'referral')
-    return applications.filter((app) => Boolean(app.referral) || app.tags.includes('Referral'));
-  return applications;
+export function filterApplications(
+  applications: Application[],
+  filter: FilterId,
+  fields: { company: string; location: string; tag: string } = {
+    company: 'all',
+    location: 'all',
+    tag: 'all',
+  },
+): Application[] {
+  return applications.filter((app) => {
+    if (filter === 'high' && app.priority !== 'high') return false;
+    if (filter === 'thisweek' && !(app.nextActionDue && daysFrom(app.nextActionDue) > -7)) {
+      return false;
+    }
+    if (filter === 'remote' && app.remote !== 'Remote') return false;
+    if (filter === 'referral' && !(Boolean(app.referral) || app.tags.includes('Referral'))) {
+      return false;
+    }
+    if (fields.company !== 'all' && app.company !== fields.company) return false;
+    if (fields.location !== 'all' && app.location !== fields.location) return false;
+    if (fields.tag !== 'all' && !app.tags.includes(fields.tag)) return false;
+    return true;
+  });
 }
 
 function Column({
@@ -730,9 +877,6 @@ function ApplicationCard({
           </span>
         ))}
       </div>
-      <div className="app-card__bar">
-        <div className="app-card__bar-fill" style={{ width: `${application.progress}%` }} />
-      </div>
       <div className="app-card__bottom">
         <span className="app-card__id">{application.displayId}</span>
         <span className="row-center" style={{ gap: 4 }}>
@@ -848,22 +992,9 @@ export function CardDetailDialog({ displayId }: { displayId: string }) {
           </div>
           <span className="grow" />
           {application.status === 'wishlist' ? (
-            <button
-              className="astral-gold-btn"
-              onClick={() =>
-                updateApp(
-                  application.id,
-                  {
-                    status: 'applied',
-                    applied: new Date().toISOString().slice(0, 10),
-                    progress: 20,
-                  },
-                  'Application submitted',
-                )
-              }
-            >
+            <Link className="astral-gold-btn" href={`/apply/${application.displayId}`}>
               <Icon name="rocket" size={14} /> Apply now
-            </button>
+            </Link>
           ) : null}
           {(
             [

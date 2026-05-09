@@ -2,12 +2,21 @@ import { beforeEach, describe, expect, test } from 'vitest';
 import { useAppsStore } from '@/lib/store/apps-store';
 import { selectUnread, useNotificationsStore } from '@/lib/store/notifications-store';
 import { useUiStore } from '@/lib/store/ui-store';
+import { filterApplications } from '@/components/jobtracker/JobTrackerApp';
 
 describe('stores', () => {
   beforeEach(() => {
     useAppsStore.getState().reset();
     useNotificationsStore.getState().reset();
-    useUiStore.setState({ boardFilter: 'all', viewMode: 'board', toasts: [] });
+    useUiStore.setState({
+      boardFilter: 'all',
+      boardCompanyFilter: 'all',
+      boardLocationFilter: 'all',
+      boardTagFilter: 'all',
+      boardSortMode: 'lastActivity',
+      viewMode: 'board',
+      toasts: [],
+    });
   });
 
   test('moves an application and records history', () => {
@@ -28,5 +37,33 @@ describe('stores', () => {
     expect(selectUnread(useNotificationsStore.getState()).length).toBe(5);
     useNotificationsStore.getState().markAllRead();
     expect(selectUnread(useNotificationsStore.getState()).length).toBe(0);
+  });
+
+  test('board field filters narrow applications by company, location, and tag', () => {
+    const applications = useAppsStore.getState().applications;
+
+    const stripe = filterApplications(applications, 'all', {
+      company: 'stripe',
+      location: 'all',
+      tag: 'all',
+    });
+    expect(stripe.length).toBeGreaterThan(0);
+    expect(stripe.every((app) => app.company === 'stripe')).toBe(true);
+
+    const remote = filterApplications(applications, 'all', {
+      company: 'all',
+      location: 'Remote (US)',
+      tag: 'all',
+    });
+    expect(remote.length).toBeGreaterThan(0);
+    expect(remote.every((app) => app.location === 'Remote (US)')).toBe(true);
+
+    const ai = filterApplications(applications, 'all', {
+      company: 'all',
+      location: 'all',
+      tag: 'AI',
+    });
+    expect(ai.length).toBeGreaterThan(0);
+    expect(ai.every((app) => app.tags.includes('AI'))).toBe(true);
   });
 });

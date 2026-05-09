@@ -205,33 +205,43 @@ a {
   display: inline-flex;
   height: 32px;
   width: 32px;
+  min-width: 32px;
   align-items: center;
   justify-content: center;
   border: 0.5px solid var(--border);
   border-radius: 50%;
   background: linear-gradient(135deg, var(--gold), #8a7434);
   color: var(--bg);
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .astral-gold-btn,
 .card-cta.is-primary {
   display: inline-flex;
+  max-width: 100%;
+  min-width: 0;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 5px;
   border: 0;
   border-radius: var(--radius-pill);
   background: linear-gradient(135deg, var(--gold), rgba(201, 168, 76, 0.85));
   color: var(--bg);
   cursor: pointer;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .astral-gold-btn {
-  height: 34px;
-  padding: 0 14px;
+  min-height: 32px;
+  padding: 0 12px;
 }
 
 .board {
@@ -286,6 +296,7 @@ a {
 .filter-chip,
 .filter-group {
   display: inline-flex;
+  max-width: 240px;
   height: 30px;
   align-items: center;
   gap: 6px;
@@ -296,6 +307,19 @@ a {
   cursor: pointer;
   font-size: 13px;
   padding: 0 12px;
+}
+
+.filter-group select {
+  min-width: 0;
+  max-width: 190px;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  outline: none;
+  text-overflow: ellipsis;
 }
 
 .filter-chip:hover,
@@ -493,6 +517,19 @@ a {
   font-size: 13px;
 }
 
+.app-card__logo.is-svgl {
+  overflow: hidden;
+  background: var(--white);
+  color: var(--bg);
+  padding: 6px;
+}
+
+.app-card__logo.is-svgl svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .app-card__title-wrap {
   min-width: 0;
   flex: 1;
@@ -626,17 +663,23 @@ a {
 
 .card-cta {
   display: inline-flex;
+  max-width: 100%;
+  min-width: 0;
   height: 28px;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 5px;
   border: 0.5px solid var(--border);
   border-radius: var(--radius-pill);
   background: transparent;
   color: var(--body);
   cursor: pointer;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 0 10px;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .modal-backdrop {

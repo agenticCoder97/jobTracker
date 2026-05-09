@@ -31,11 +31,11 @@ test('profile about persists and tabs are URL backed', async ({ page }) => {
   await page.reload();
   await expect(page.getByText('Persisted profile note')).toBeVisible();
 
-  await page.getByRole('button', { name: 'resumes' }).click();
+  await page.getByRole('tab', { name: 'Resumes' }).click();
   await expect(page).toHaveURL(/tab=resumes/);
   await expect(page.getByRole('heading', { name: 'Resumes' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'covers' }).click();
+  await page.getByRole('tab', { name: 'Cover letters' }).click();
   await expect(page).toHaveURL(/tab=covers/);
   await expect(page.getByRole('heading', { name: 'Cover letters' })).toBeVisible();
 });

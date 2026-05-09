@@ -15,7 +15,7 @@ test('jobs filters and listing preview add an untracked job to wishlist', async 
   await page.getByRole('button', { name: /Add to wishlist/i }).click();
 
   await expect(page).toHaveURL(/\/card\/JT-/);
-  await expect(page.getByRole('heading', { name: 'Software Engineer, Search' })).toBeVisible();
+  await expect(page.locator('#card-detail-title')).toContainText('Software Engineer, Search');
 });
 
 test('companies search opens detail and can wishlist an open role', async ({ page }) => {
@@ -34,7 +34,7 @@ test('companies search opens detail and can wishlist an open role', async ({ pag
     .click();
 
   await expect(page).toHaveURL(/\/card\/JT-/);
-  await expect(page.getByRole('heading', { name: 'Software Engineer, Search' })).toBeVisible();
+  await expect(page.locator('#card-detail-title')).toContainText('Software Engineer, Search');
 });
 
 test('apply flow submits a wishlist card with selected documents', async ({ page }) => {
