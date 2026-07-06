@@ -218,7 +218,11 @@ export function TopBar() {
   const pushToast = useUiStore((state) => state.pushToast);
 
   function createApplication() {
-    const app = createCard('wishlist');
+    const app = createCard({
+      status: 'wishlist',
+      companyName: 'New company',
+      role: 'New application',
+    });
     router.push(`/card/${app.displayId}`);
   }
 
@@ -509,7 +513,7 @@ function BoardView() {
   }, [boardSortMode, filteredApplications]);
 
   function addCard(status: StatusId) {
-    const app = createCard(status);
+    const app = createCard({ status, companyName: 'New company', role: 'New application' });
     router.push(`/card/${app.displayId}`);
   }
 

@@ -5,6 +5,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { seedAll, seedUuid, type SortMode } from '@/lib/data/seed';
 import { computeAts } from '@/lib/utils/ats';
 import { daysAgo } from '@/lib/utils/dates';
+import { slugifyCompanyId } from '@/lib/company-logos';
 import type {
   Activity,
   AppDocs,
@@ -12,6 +13,7 @@ import type {
   DailyPick,
   HistoryEvent,
   JobListing,
+  Priority,
   RemoteMode,
   StatusId,
   Uuid,
@@ -21,13 +23,27 @@ import { recordAudit } from '@/lib/store/audit';
 
 const seed = seedAll();
 
+export type NewApplicationInput = {
+  status: StatusId;
+  companyName: string;
+  role: string;
+  location?: string;
+  remote?: RemoteMode;
+  salaryMin?: number;
+  salaryMax?: number;
+  priority?: Priority;
+  tags?: string[];
+  postingUrl?: string;
+  description?: string;
+};
+
 type AppsState = {
   applications: Application[];
   activity: Record<Uuid, Activity>;
   appDocs: Record<Uuid, AppDocs>;
   statusSortMode: Record<StatusId, SortMode>;
   getByDisplayId: (displayId: string) => Application | undefined;
-  createCard: (status: StatusId) => Application;
+  createCard: (input: NewApplicationInput) => Application;
   updateApp: (id: Uuid, patch: Partial<Application>, text?: string) => void;
   moveStatus: (id: Uuid, status: StatusId) => void;
   reorderInStatus: (status: StatusId, orderedIds: Uuid[]) => void;
@@ -91,36 +107,39 @@ export const useAppsStore = create<AppsState>()(
       appDocs: seed.appDocs,
       statusSortMode: seed.statusSortMode,
       getByDisplayId: (displayId) => get().applications.find((app) => app.displayId === displayId),
-      createCard: (status) => {
+      createCard: (input) => {
         const displayId = nextDisplayId(get().applications);
+        const now = new Date().toISOString();
         const app: Application = {
           id: seedUuid(displayId),
           ownerUserId: seed.applications[0]?.ownerUserId ?? '00000000-0000-0000-0000-000000000001',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          createdAt: now,
+          updatedAt: now,
           deletedAt: null,
           displayId,
-          status,
-          company: 'anthropic',
-          role: 'New application',
-          location: 'Remote (US)',
-          remote: 'Remote',
-          salaryMin: 180,
-          salaryMax: 240,
+          status: input.status,
+          company: slugifyCompanyId(input.companyName),
+          companyName: input.companyName.trim(),
+          role: input.role.trim(),
+          location: input.location?.trim() || 'Remote',
+          remote: input.remote ?? 'Remote',
+          salaryMin: input.salaryMin ?? 0,
+          salaryMax: input.salaryMax ?? 0,
           level: 'Senior',
           team: 'Product',
           posted: daysAgo(0),
-          applied: null,
-          lastActivity: new Date().toISOString(),
-          priority: 'med',
+          applied: input.status === 'wishlist' ? null : daysAgo(0),
+          lastActivity: now,
+          priority: input.priority ?? 'med',
           source: 'Manual entry',
-          progress: status === 'wishlist' ? 5 : 20,
-          tags: ['Draft'],
-          description: 'Add notes about this role.',
+          progress: input.status === 'wishlist' ? 5 : 20,
+          tags: input.tags ?? [],
           sourceListingId: null,
-          sortIndex: get().applications.filter((item) => item.status === status).length,
+          sortIndex: get().applications.filter((item) => item.status === input.status).length,
           archivedAt: null,
         };
+        if (input.postingUrl?.trim()) app.postingUrl = input.postingUrl.trim();
+        if (input.description?.trim()) app.description = input.description.trim();
         set((state) => ({
           applications: [app, ...state.applications],
           activity: {
@@ -131,7 +150,7 @@ export const useAppsStore = create<AppsState>()(
             },
           },
         }));
-        recordAudit('application', app.id, 'created', { source: 'manual', status });
+        recordAudit('application', app.id, 'created', { source: 'manual', status: input.status });
         return app;
       },
       updateApp: (id, patch, text = 'Application updated') => {
