@@ -1,6 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
+import type { StatusId } from '@/lib/types';
 
 export type FilterId = 'all' | 'mine' | 'high' | 'thisweek' | 'remote' | 'referral';
 export type ToastKind = 'success' | 'info' | 'error';
@@ -18,6 +19,7 @@ type UiState = {
   viewMode: 'board' | 'list' | 'timeline';
   companiesSearch: string;
   companiesSort: CompaniesSort;
+  newAppStatus: StatusId | null;
   toasts: Toast[];
   setBoardFilter: (filter: FilterId) => void;
   setBoardCompanyFilter: (company: BoardFieldFilter) => void;
@@ -27,6 +29,8 @@ type UiState = {
   setViewMode: (viewMode: 'board' | 'list' | 'timeline') => void;
   setCompaniesSearch: (companiesSearch: string) => void;
   setCompaniesSort: (companiesSort: CompaniesSort) => void;
+  openNewApp: (status: StatusId) => void;
+  closeNewApp: () => void;
   pushToast: (toast: { kind?: ToastKind; message: string }) => void;
   removeToast: (id: string) => void;
 };
@@ -40,6 +44,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   viewMode: 'board',
   companiesSearch: '',
   companiesSort: 'rating',
+  newAppStatus: null,
   toasts: [],
   setBoardFilter: (boardFilter) => set({ boardFilter }),
   setBoardCompanyFilter: (boardCompanyFilter) => set({ boardCompanyFilter }),
@@ -49,6 +54,8 @@ export const useUiStore = create<UiState>((set, get) => ({
   setViewMode: (viewMode) => set({ viewMode }),
   setCompaniesSearch: (companiesSearch) => set({ companiesSearch }),
   setCompaniesSort: (companiesSort) => set({ companiesSort }),
+  openNewApp: (newAppStatus) => set({ newAppStatus }),
+  closeNewApp: () => set({ newAppStatus: null }),
   pushToast: (toast) => {
     const id = crypto.randomUUID();
     set((state) => ({

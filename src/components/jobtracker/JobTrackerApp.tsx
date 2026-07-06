@@ -23,6 +23,7 @@ import { CSS } from '@dnd-kit/utilities';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { NewApplicationDialog } from '@/components/jobtracker/NewApplicationDialog';
 import { DemoOnly } from '@/components/ui/DemoOnly';
 import { getCompanyLogoSources, resolveLogoCompany } from '@/lib/company-logos';
 import { COMPANIES, STATUSES, TEAM } from '@/lib/data/seed';
@@ -71,6 +72,7 @@ export function JobTrackerApp({ initialCardDisplayId }: JobTrackerAppProps) {
       {hydrated && initialCardDisplayId ? (
         <CardDetailDialog displayId={initialCardDisplayId} />
       ) : null}
+      <NewApplicationDialog />
       <ToastHost />
     </div>
   );
@@ -89,6 +91,7 @@ export function PlaceholderApp({ title, description }: { title: string; descript
           </Link>
         </div>
       </main>
+      <NewApplicationDialog />
       <ToastHost />
     </div>
   );
@@ -205,7 +208,6 @@ function Avatar({ who, size = 22 }: { who: TeamId; size?: number }) {
 
 export function TopBar() {
   const pathname = usePathname();
-  const router = useRouter();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
   const unreadCount = useNotificationsStore(
@@ -214,16 +216,11 @@ export function TopBar() {
         (notification) => !state.readAt[notification.id] && !state.dismissedAt[notification.id],
       ).length,
   );
-  const createCard = useAppsStore((state) => state.createCard);
+  const openNewApp = useUiStore((state) => state.openNewApp);
   const pushToast = useUiStore((state) => state.pushToast);
 
   function createApplication() {
-    const app = createCard({
-      status: 'wishlist',
-      companyName: 'New company',
-      role: 'New application',
-    });
-    router.push(`/card/${app.displayId}`);
+    openNewApp('wishlist');
   }
 
   function demo(label: string) {
@@ -447,7 +444,6 @@ function BoardView() {
   const applications = useAppsStore((state) => state.applications);
   const moveStatus = useAppsStore((state) => state.moveStatus);
   const reorderInStatus = useAppsStore((state) => state.reorderInStatus);
-  const createCard = useAppsStore((state) => state.createCard);
   const boardFilter = useUiStore((state) => state.boardFilter);
   const setBoardFilter = useUiStore((state) => state.setBoardFilter);
   const boardCompanyFilter = useUiStore((state) => state.boardCompanyFilter);
@@ -460,7 +456,7 @@ function BoardView() {
   const setBoardSortMode = useUiStore((state) => state.setBoardSortMode);
   const viewMode = useUiStore((state) => state.viewMode);
   const setViewMode = useUiStore((state) => state.setViewMode);
-  const router = useRouter();
+  const openNewApp = useUiStore((state) => state.openNewApp);
   const [draggingId, setDraggingId] = useState<Uuid | null>(null);
   const [dragOverStatus, setDragOverStatus] = useState<StatusId | null>(null);
   const sensors = useSensors(
@@ -513,8 +509,7 @@ function BoardView() {
   }, [boardSortMode, filteredApplications]);
 
   function addCard(status: StatusId) {
-    const app = createCard({ status, companyName: 'New company', role: 'New application' });
-    router.push(`/card/${app.displayId}`);
+    openNewApp(status);
   }
 
   function statusForDragTarget(id: string, overStatus?: StatusId): StatusId | null {
