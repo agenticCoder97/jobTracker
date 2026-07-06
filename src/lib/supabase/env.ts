@@ -1,11 +1,14 @@
-const REQUIRED_ENV = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY'] as const;
+const SUPABASE_URL_ENV = 'NEXT_PUBLIC_SUPABASE_URL' as const;
+const PUBLISHABLE_KEY_ENV = 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY' as const;
+const ANON_KEY_ENV = 'NEXT_PUBLIC_SUPABASE_ANON_KEY' as const;
+const SECRET_KEY_ENV = 'SUPABASE_SECRET_KEY' as const;
 const SERVICE_ROLE_ENV = 'SUPABASE_SERVICE_ROLE_KEY' as const;
 const CRON_SECRET_ENV = 'CRON_SECRET' as const;
 
-type RequiredEnvKey = (typeof REQUIRED_ENV)[number];
+type SupabaseEnvKey = typeof SUPABASE_URL_ENV | typeof PUBLISHABLE_KEY_ENV | typeof ANON_KEY_ENV;
 export type PersistenceAdapter = 'local' | 'supabase';
 
-function readEnv(key: RequiredEnvKey): string | undefined {
+function readEnv(key: SupabaseEnvKey): string | undefined {
   const value = process.env[key];
   if (typeof value !== 'string') return undefined;
   const trimmed = value.trim();
@@ -13,15 +16,17 @@ function readEnv(key: RequiredEnvKey): string | undefined {
 }
 
 export function hasSupabaseEnv(): boolean {
-  return REQUIRED_ENV.every((key) => Boolean(readEnv(key)));
+  return Boolean(
+    readEnv(SUPABASE_URL_ENV) && (readEnv(PUBLISHABLE_KEY_ENV) || readEnv(ANON_KEY_ENV)),
+  );
 }
 
 export function getSupabaseEnv() {
-  const url = readEnv('NEXT_PUBLIC_SUPABASE_URL');
-  const anonKey = readEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY');
+  const url = readEnv(SUPABASE_URL_ENV);
+  const anonKey = readEnv(PUBLISHABLE_KEY_ENV) ?? readEnv(ANON_KEY_ENV);
   if (!url || !anonKey) {
     throw new Error(
-      'Missing Supabase env vars. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.',
+      `Missing Supabase env vars. Set ${SUPABASE_URL_ENV} and ${PUBLISHABLE_KEY_ENV} (or legacy ${ANON_KEY_ENV}).`,
     );
   }
   return { url, anonKey };
@@ -35,12 +40,12 @@ export function shouldUseSupabaseAdapter(): boolean {
   return getPersistenceAdapter() === 'supabase' && hasSupabaseEnv();
 }
 
-/** Server-only. Reads SUPABASE_SERVICE_ROLE_KEY. Never expose to the client. */
-export function getSupabaseServiceRoleKey(): string {
-  const value = process.env[SERVICE_ROLE_ENV];
+/** Server-only. Reads a Supabase secret/service-role key. Never expose to the client. */
+export function getSupabaseAdminKey(): string {
+  const value = process.env[SECRET_KEY_ENV] ?? process.env[SERVICE_ROLE_ENV];
   if (typeof value !== 'string' || value.trim().length === 0) {
     throw new Error(
-      `Missing ${SERVICE_ROLE_ENV}. Pull it via \`vercel env pull .env.local\` or set it in Vercel.`,
+      `Missing ${SECRET_KEY_ENV} (or legacy ${SERVICE_ROLE_ENV}). Add a Supabase secret key from Project Settings > API keys.`,
     );
   }
   return value.trim();
