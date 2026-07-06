@@ -16,15 +16,15 @@ import 'server-only';
 import { createClient } from '@supabase/supabase-js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { getSupabaseEnv, getSupabaseServiceRoleKey } from '@/lib/supabase/env';
+import { getSupabaseAdminKey, getSupabaseEnv } from '@/lib/supabase/env';
 
 let client: SupabaseClient | undefined;
 
 export function getSupabaseAdminClient(): SupabaseClient {
   if (client) return client;
   const { url } = getSupabaseEnv();
-  const serviceRoleKey = getSupabaseServiceRoleKey();
-  client = createClient(url, serviceRoleKey, {
+  const adminKey = getSupabaseAdminKey();
+  client = createClient(url, adminKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,

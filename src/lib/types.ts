@@ -157,6 +157,8 @@ export type Application = Audited & {
   displayId: string;
   status: StatusId;
   company: CompanyId;
+  /** Display name for free-form companies; seeded companies resolve via COMPANIES. */
+  companyName?: string;
   role: string;
   location: string;
   remote: RemoteMode;
@@ -170,6 +172,7 @@ export type Application = Audited & {
   lastActivity: IsoDateTime;
   priority: Priority;
   source: string;
+  postingUrl?: string;
   referral?: string;
   progress: number;
   tags: string[];

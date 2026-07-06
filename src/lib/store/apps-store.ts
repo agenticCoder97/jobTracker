@@ -5,6 +5,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { seedAll, seedUuid, type SortMode } from '@/lib/data/seed';
 import { computeAts } from '@/lib/utils/ats';
 import { daysAgo } from '@/lib/utils/dates';
+import { slugifyCompanyId } from '@/lib/company-logos';
 import type {
   Activity,
   AppDocs,
@@ -12,6 +13,7 @@ import type {
   DailyPick,
   HistoryEvent,
   JobListing,
+  Priority,
   RemoteMode,
   StatusId,
   Uuid,
@@ -21,13 +23,27 @@ import { recordAudit } from '@/lib/store/audit';
 
 const seed = seedAll();
 
+export type NewApplicationInput = {
+  status: StatusId;
+  companyName: string;
+  role: string;
+  location?: string;
+  remote?: RemoteMode;
+  salaryMin?: number;
+  salaryMax?: number;
+  priority?: Priority;
+  tags?: string[];
+  postingUrl?: string;
+  description?: string;
+};
+
 type AppsState = {
   applications: Application[];
   activity: Record<Uuid, Activity>;
   appDocs: Record<Uuid, AppDocs>;
   statusSortMode: Record<StatusId, SortMode>;
   getByDisplayId: (displayId: string) => Application | undefined;
-  createCard: (status: StatusId) => Application;
+  createCard: (input: NewApplicationInput) => Application;
   updateApp: (id: Uuid, patch: Partial<Application>, text?: string) => void;
   moveStatus: (id: Uuid, status: StatusId) => void;
   reorderInStatus: (status: StatusId, orderedIds: Uuid[]) => void;
@@ -35,6 +51,8 @@ type AppsState = {
   addComment: (applicationId: Uuid, text: string) => void;
   addToWishlist: (listing: JobListing | DailyPick, source?: 'Jobs' | 'Research') => Application;
   applyCard: (id: Uuid, docs: { resumeId: Uuid; coverLetterId: Uuid | null }) => void;
+  archiveApp: (id: Uuid) => void;
+  deleteApp: (id: Uuid) => void;
   reset: () => void;
 };
 
@@ -83,6 +101,18 @@ function listingId(input: JobListing | DailyPick): Uuid {
   return input.id;
 }
 
+function sync(appId: Uuid): void {
+  void import('@/lib/store/apps-sync').then((mod) => mod.queuePersist(appId));
+}
+
+function syncMany(appIds: Uuid[]): void {
+  void import('@/lib/store/apps-sync').then((mod) => mod.persistMany(appIds));
+}
+
+function syncReset(): void {
+  void import('@/lib/store/apps-sync').then((mod) => mod.resetServer());
+}
+
 export const useAppsStore = create<AppsState>()(
   persist(
     (set, get) => ({
@@ -90,37 +120,41 @@ export const useAppsStore = create<AppsState>()(
       activity: seed.activity,
       appDocs: seed.appDocs,
       statusSortMode: seed.statusSortMode,
-      getByDisplayId: (displayId) => get().applications.find((app) => app.displayId === displayId),
-      createCard: (status) => {
+      getByDisplayId: (displayId) =>
+        get().applications.find((app) => app.displayId === displayId && !app.deletedAt),
+      createCard: (input) => {
         const displayId = nextDisplayId(get().applications);
+        const now = new Date().toISOString();
         const app: Application = {
           id: seedUuid(displayId),
           ownerUserId: seed.applications[0]?.ownerUserId ?? '00000000-0000-0000-0000-000000000001',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          createdAt: now,
+          updatedAt: now,
           deletedAt: null,
           displayId,
-          status,
-          company: 'anthropic',
-          role: 'New application',
-          location: 'Remote (US)',
-          remote: 'Remote',
-          salaryMin: 180,
-          salaryMax: 240,
+          status: input.status,
+          company: slugifyCompanyId(input.companyName),
+          companyName: input.companyName.trim(),
+          role: input.role.trim(),
+          location: input.location?.trim() || 'Remote',
+          remote: input.remote ?? 'Remote',
+          salaryMin: input.salaryMin ?? 0,
+          salaryMax: input.salaryMax ?? 0,
           level: 'Senior',
           team: 'Product',
           posted: daysAgo(0),
-          applied: null,
-          lastActivity: new Date().toISOString(),
-          priority: 'med',
+          applied: input.status === 'wishlist' ? null : daysAgo(0),
+          lastActivity: now,
+          priority: input.priority ?? 'med',
           source: 'Manual entry',
-          progress: status === 'wishlist' ? 5 : 20,
-          tags: ['Draft'],
-          description: 'Add notes about this role.',
+          progress: input.status === 'wishlist' ? 5 : 20,
+          tags: input.tags ?? [],
           sourceListingId: null,
-          sortIndex: get().applications.filter((item) => item.status === status).length,
+          sortIndex: get().applications.filter((item) => item.status === input.status).length,
           archivedAt: null,
         };
+        if (input.postingUrl?.trim()) app.postingUrl = input.postingUrl.trim();
+        if (input.description?.trim()) app.description = input.description.trim();
         set((state) => ({
           applications: [app, ...state.applications],
           activity: {
@@ -131,7 +165,8 @@ export const useAppsStore = create<AppsState>()(
             },
           },
         }));
-        recordAudit('application', app.id, 'created', { source: 'manual', status });
+        recordAudit('application', app.id, 'created', { source: 'manual', status: input.status });
+        sync(app.id);
         return app;
       },
       updateApp: (id, patch, text = 'Application updated') => {
@@ -148,6 +183,7 @@ export const useAppsStore = create<AppsState>()(
           },
         }));
         recordAudit('application', id, 'fields_edited', { fields: Object.keys(patch) });
+        sync(id);
       },
       moveStatus: (id, status) => {
         set((state) => ({
@@ -174,6 +210,7 @@ export const useAppsStore = create<AppsState>()(
           statusSortMode: { ...state.statusSortMode, [status]: 'manual' },
         }));
         recordAudit('application', id, 'status_changed', { to: status });
+        sync(id);
       },
       reorderInStatus: (status, orderedIds) => {
         const indexById = new Map(orderedIds.map((id, index) => [id, index]));
@@ -186,6 +223,7 @@ export const useAppsStore = create<AppsState>()(
           statusSortMode: { ...state.statusSortMode, [status]: 'manual' },
         }));
         recordAudit('application', status, 'reordered', { count: orderedIds.length });
+        syncMany(orderedIds);
       },
       setStatusSortMode: (status, mode) => {
         set((state) => ({ statusSortMode: { ...state.statusSortMode, [status]: mode } }));
@@ -218,6 +256,7 @@ export const useAppsStore = create<AppsState>()(
           ),
         }));
         recordAudit('application', applicationId, 'comment_added');
+        sync(applicationId);
       },
       addToWishlist: (input, source = 'Jobs') => {
         const sourceId = listingId(input);
@@ -275,6 +314,7 @@ export const useAppsStore = create<AppsState>()(
           },
         }));
         recordAudit('application', app.id, 'wishlist_added', { source, sourceId });
+        sync(app.id);
         return app;
       },
       applyCard: (id, docs) => {
@@ -329,6 +369,37 @@ export const useAppsStore = create<AppsState>()(
           resumeId: docs.resumeId,
           coverLetterId: docs.coverLetterId,
         });
+        sync(id);
+      },
+      archiveApp: (id) => {
+        const isArchived = Boolean(get().applications.find((app) => app.id === id)?.archivedAt);
+        const archivedAt = isArchived ? null : new Date().toISOString();
+        set((state) => ({
+          applications: state.applications.map((app) =>
+            app.id === id ? bump({ ...app, archivedAt }) : app,
+          ),
+          activity: {
+            ...state.activity,
+            [id]: {
+              ...(state.activity[id] ?? emptyActivity()),
+              history: [
+                historyEvent('field', archivedAt ? 'Card archived' : 'Card unarchived'),
+                ...(state.activity[id]?.history ?? []),
+              ],
+            },
+          },
+        }));
+        recordAudit('application', id, archivedAt ? 'archived' : 'unarchived');
+        sync(id);
+      },
+      deleteApp: (id) => {
+        set((state) => ({
+          applications: state.applications.map((app) =>
+            app.id === id ? { ...app, deletedAt: new Date().toISOString() } : app,
+          ),
+        }));
+        recordAudit('application', id, 'deleted');
+        sync(id);
       },
       reset: () => {
         const fresh = seedAll();
@@ -339,6 +410,7 @@ export const useAppsStore = create<AppsState>()(
           statusSortMode: fresh.statusSortMode,
         });
         recordAudit('demo', 'apps', 'reset');
+        syncReset();
       },
     }),
     {

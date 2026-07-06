@@ -14,10 +14,7 @@ import { track as vercelTrack } from '@vercel/analytics';
 
 import type { AnalyticsEventMap, AnalyticsEventName } from '@/lib/analytics/events';
 
-export function track<E extends AnalyticsEventName>(
-  name: E,
-  payload: AnalyticsEventMap[E],
-): void {
+export function track<E extends AnalyticsEventName>(name: E, payload: AnalyticsEventMap[E]): void {
   if (typeof window === 'undefined') return;
 
   try {

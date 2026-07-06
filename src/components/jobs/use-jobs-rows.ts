@@ -1,5 +1,6 @@
 import { COMPANIES, STATUSES } from '@/lib/data/seed';
 import type { Application, JobListing, RemoteMode, StatusId } from '@/lib/types';
+import { companyNameOf } from '@/lib/utils/company-name';
 
 export type JobsScope = 'all' | 'tracked' | 'matched' | 'open';
 export type JobsStatusFilter = StatusId | 'open' | 'all';
@@ -76,36 +77,38 @@ export function buildJobsRows(
     params.scope === 'all' || params.scope === 'matched' || params.scope === 'open';
 
   const trackedRows: JobsRow[] = includeTracked
-    ? applications.map((application) => {
-        const companyName = COMPANIES[application.company]?.name ?? application.company;
-        const status = STATUSES.find((item) => item.id === application.status);
-        const searchText = normalizedSearch([
-          application.role,
-          companyName,
-          application.location,
-          application.tags,
-        ]);
-        return {
-          kind: 'tracked',
-          id: application.id,
-          displayId: application.displayId,
-          company: application.company,
-          companyName,
-          role: application.role,
-          status: application.status,
-          statusLabel: status?.title ?? application.status,
-          statusColor: status?.color ?? '#6B6B7A',
-          location: application.location,
-          remote: application.remote,
-          salaryMin: application.salaryMin,
-          salaryMax: application.salaryMax,
-          match: null,
-          updated: application.lastActivity,
-          tags: application.tags,
-          searchText,
-          application,
-        };
-      })
+    ? applications
+        .filter((application) => !application.archivedAt && !application.deletedAt)
+        .map((application) => {
+          const companyName = companyNameOf(application);
+          const status = STATUSES.find((item) => item.id === application.status);
+          const searchText = normalizedSearch([
+            application.role,
+            companyName,
+            application.location,
+            application.tags,
+          ]);
+          return {
+            kind: 'tracked',
+            id: application.id,
+            displayId: application.displayId,
+            company: application.company,
+            companyName,
+            role: application.role,
+            status: application.status,
+            statusLabel: status?.title ?? application.status,
+            statusColor: status?.color ?? '#6B6B7A',
+            location: application.location,
+            remote: application.remote,
+            salaryMin: application.salaryMin,
+            salaryMax: application.salaryMax,
+            match: null,
+            updated: application.lastActivity,
+            tags: application.tags,
+            searchText,
+            application,
+          };
+        })
     : [];
 
   const listingRows: JobsRow[] = includeListings
