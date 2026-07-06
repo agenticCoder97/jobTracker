@@ -7,13 +7,7 @@ import type { IsoDateTime, Uuid } from '@/lib/types';
 export type AuditEvent = {
   id: Uuid;
   ownerUserId: Uuid;
-  entityType:
-    | 'application'
-    | 'profile'
-    | 'resume'
-    | 'coverLetter'
-    | 'notification'
-    | 'demo';
+  entityType: 'application' | 'profile' | 'resume' | 'coverLetter' | 'notification' | 'demo';
   entityId: string;
   event: string;
   metadata?: Record<string, unknown>;
@@ -42,7 +36,10 @@ export type AppLog = {
 /** Append-only audit log repository contract. */
 export type EventLogRepository = {
   appendAudit: (input: Omit<AuditEvent, 'id' | 'createdAt'>) => AuditEvent;
-  listAudit: (filter?: { entityId?: string; entityType?: AuditEvent['entityType'] }) => AuditEvent[];
+  listAudit: (filter?: {
+    entityId?: string;
+    entityType?: AuditEvent['entityType'];
+  }) => AuditEvent[];
   appendLog: (input: Omit<AppLog, 'id' | 'createdAt'>) => AppLog;
   listLogs: () => AppLog[];
   reset: () => void;
@@ -82,9 +79,7 @@ export type UserActionRepository = {
 };
 
 /** Strip forbidden keys (defence-in-depth before storage / external sinks). */
-export function redactMetadata<T extends Record<string, unknown> | undefined>(
-  metadata: T,
-): T {
+export function redactMetadata<T extends Record<string, unknown> | undefined>(metadata: T): T {
   if (!metadata) return metadata;
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(metadata)) {

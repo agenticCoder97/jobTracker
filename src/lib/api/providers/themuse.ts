@@ -42,7 +42,10 @@ export const themuse: JobProvider = {
 };
 
 function stripHtml(s: string): string {
-  return s.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  return s
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 type MuseResponse = { results?: MuseJob[] };

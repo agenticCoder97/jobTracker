@@ -22,9 +22,7 @@ export function getProvider(id: ProviderId): AnyProvider {
 }
 
 export function listJobProviders(): JobProvider[] {
-  return Object.values(ALL_PROVIDERS).filter(
-    (p): p is JobProvider => p.kind === 'jobs',
-  );
+  return Object.values(ALL_PROVIDERS).filter((p): p is JobProvider => p.kind === 'jobs');
 }
 
 export const PROVIDER_IDS = Object.keys(ALL_PROVIDERS) as ProviderId[];
