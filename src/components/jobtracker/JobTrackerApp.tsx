@@ -964,8 +964,7 @@ export function CardDetailDialog({ displayId }: { displayId: string }) {
       >
         <div className="modal__head">
           <div className="modal__crumbs">
-            Board <Icon name="chevron-right" size={14} />{' '}
-            <span>{companyNameOf(application)}</span>{' '}
+            Board <Icon name="chevron-right" size={14} /> <span>{companyNameOf(application)}</span>{' '}
             <span className="id">{application.displayId}</span>
           </div>
           <span className="grow" />
@@ -1035,9 +1034,7 @@ function CompanyLine({ application }: { application: Application }) {
   return (
     <div className="modal__company-line">
       <CompanyLogo companyId={application.company} size={24} radius={5} />
-      <Link href={`/company/${application.company}`}>
-        {companyNameOf(application)}
-      </Link>
+      <Link href={`/company/${application.company}`}>{companyNameOf(application)}</Link>
       <span>{application.location}</span>
       <span>·</span>
       <button
