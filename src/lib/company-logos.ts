@@ -103,7 +103,7 @@ function looksLikeDomain(value: string) {
   return /^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}$/i.test(value.trim());
 }
 
-function toDisplayName(value: string) {
+export function toDisplayName(value: string) {
   const withoutTld = value.replace(/\.[a-z]{2,}$/i, '');
   const words = withoutTld
     .replace(/[_-]+/g, ' ')
@@ -124,4 +124,15 @@ function firstInitial(value: string) {
 function colorFromString(value: string) {
   const hash = Array.from(value).reduce((total, char) => total + char.charCodeAt(0), 0);
   return `hsl(${hash % 360} 58% 42%)`;
+}
+
+/** Derive a stable CompanyId slug from a free-form company name. */
+export function slugifyCompanyId(name: string): string {
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return slug || 'company';
 }

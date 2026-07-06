@@ -32,6 +32,7 @@ import { useNotificationsStore } from '@/lib/store/notifications-store';
 import { useProfileStore } from '@/lib/store/profile-store';
 import { useHydration } from '@/lib/store/use-hydration';
 import { useUiStore, type BoardSortMode, type FilterId } from '@/lib/store/ui-store';
+import { companyNameOf } from '@/lib/utils/company-name';
 import { daysFrom, fmtDate } from '@/lib/utils/dates';
 import { gradeFor } from '@/lib/utils/ats';
 import { resolveOrder } from '@/lib/utils/sort-resolver';
@@ -834,7 +835,7 @@ function ApplicationCard({
               href={`/company/${application.company}`}
               onClick={(event) => event.stopPropagation()}
             >
-              {COMPANIES[application.company]?.name ?? application.company}
+              {companyNameOf(application)}
             </Link>
             <span className="sep" />
             <span>{application.remote}</span>
@@ -964,7 +965,7 @@ export function CardDetailDialog({ displayId }: { displayId: string }) {
         <div className="modal__head">
           <div className="modal__crumbs">
             Board <Icon name="chevron-right" size={14} />{' '}
-            <span>{COMPANIES[application.company]?.name}</span>{' '}
+            <span>{companyNameOf(application)}</span>{' '}
             <span className="id">{application.displayId}</span>
           </div>
           <span className="grow" />
@@ -1035,7 +1036,7 @@ function CompanyLine({ application }: { application: Application }) {
     <div className="modal__company-line">
       <CompanyLogo companyId={application.company} size={24} radius={5} />
       <Link href={`/company/${application.company}`}>
-        {COMPANIES[application.company]?.name ?? application.company}
+        {companyNameOf(application)}
       </Link>
       <span>{application.location}</span>
       <span>·</span>
@@ -1414,10 +1415,7 @@ function SidePanel({ application }: { application: Application }) {
         <SideRow label="Owner" value={<Avatar who="me" />} />
       </SideGroup>
       <SideGroup title="Role">
-        <SideRow
-          label="Company"
-          value={COMPANIES[application.company]?.name ?? application.company}
-        />
+        <SideRow label="Company" value={companyNameOf(application)} />
         <SideRow label="Level" value={application.level} />
         <SideRow label="Team" value={application.team} />
         <SideRow label="Mode" value={application.remote} />

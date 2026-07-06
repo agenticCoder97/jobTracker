@@ -1,5 +1,6 @@
 import { COMPANIES, STATUSES } from '@/lib/data/seed';
 import type { Application, JobListing, RemoteMode, StatusId } from '@/lib/types';
+import { companyNameOf } from '@/lib/utils/company-name';
 
 export type JobsScope = 'all' | 'tracked' | 'matched' | 'open';
 export type JobsStatusFilter = StatusId | 'open' | 'all';
@@ -77,7 +78,7 @@ export function buildJobsRows(
 
   const trackedRows: JobsRow[] = includeTracked
     ? applications.map((application) => {
-        const companyName = COMPANIES[application.company]?.name ?? application.company;
+        const companyName = companyNameOf(application);
         const status = STATUSES.find((item) => item.id === application.status);
         const searchText = normalizedSearch([
           application.role,
