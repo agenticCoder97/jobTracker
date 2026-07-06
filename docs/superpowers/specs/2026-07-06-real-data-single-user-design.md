@@ -1,7 +1,11 @@
 # Real data for Jobs / Companies / Research (single-user) — design
 
 - **Date**: 2026-07-06
-- **Status**: Approved by Nick (chat), pending spec review
+- **Status**: Approved, then **deferred to Round 3** — see
+  `2026-07-06-home-board-supabase-design.md` for the amended Round 1 scope (Home board
+  + manual tracking + Supabase persistence). The single-user model, database choice,
+  and adapter architecture in this doc still stand; the live-API / Research /
+  Companies work lands after Round 1 (board) and Round 2 (Outlook email auto-import).
 - **Scope**: Replace mock/seed data with Supabase persistence + live job APIs for the Jobs, Companies, and Research pages, including all card actions, for a single user. No auth this round.
 
 ## 1. Goals
