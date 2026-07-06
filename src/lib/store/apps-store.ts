@@ -101,6 +101,18 @@ function listingId(input: JobListing | DailyPick): Uuid {
   return input.id;
 }
 
+function sync(appId: Uuid): void {
+  void import('@/lib/store/apps-sync').then((mod) => mod.queuePersist(appId));
+}
+
+function syncMany(appIds: Uuid[]): void {
+  void import('@/lib/store/apps-sync').then((mod) => mod.persistMany(appIds));
+}
+
+function syncReset(): void {
+  void import('@/lib/store/apps-sync').then((mod) => mod.resetServer());
+}
+
 export const useAppsStore = create<AppsState>()(
   persist(
     (set, get) => ({
@@ -154,6 +166,7 @@ export const useAppsStore = create<AppsState>()(
           },
         }));
         recordAudit('application', app.id, 'created', { source: 'manual', status: input.status });
+        sync(app.id);
         return app;
       },
       updateApp: (id, patch, text = 'Application updated') => {
@@ -170,6 +183,7 @@ export const useAppsStore = create<AppsState>()(
           },
         }));
         recordAudit('application', id, 'fields_edited', { fields: Object.keys(patch) });
+        sync(id);
       },
       moveStatus: (id, status) => {
         set((state) => ({
@@ -196,6 +210,7 @@ export const useAppsStore = create<AppsState>()(
           statusSortMode: { ...state.statusSortMode, [status]: 'manual' },
         }));
         recordAudit('application', id, 'status_changed', { to: status });
+        sync(id);
       },
       reorderInStatus: (status, orderedIds) => {
         const indexById = new Map(orderedIds.map((id, index) => [id, index]));
@@ -208,6 +223,7 @@ export const useAppsStore = create<AppsState>()(
           statusSortMode: { ...state.statusSortMode, [status]: 'manual' },
         }));
         recordAudit('application', status, 'reordered', { count: orderedIds.length });
+        syncMany(orderedIds);
       },
       setStatusSortMode: (status, mode) => {
         set((state) => ({ statusSortMode: { ...state.statusSortMode, [status]: mode } }));
@@ -240,6 +256,7 @@ export const useAppsStore = create<AppsState>()(
           ),
         }));
         recordAudit('application', applicationId, 'comment_added');
+        sync(applicationId);
       },
       addToWishlist: (input, source = 'Jobs') => {
         const sourceId = listingId(input);
@@ -297,6 +314,7 @@ export const useAppsStore = create<AppsState>()(
           },
         }));
         recordAudit('application', app.id, 'wishlist_added', { source, sourceId });
+        sync(app.id);
         return app;
       },
       applyCard: (id, docs) => {
@@ -351,6 +369,7 @@ export const useAppsStore = create<AppsState>()(
           resumeId: docs.resumeId,
           coverLetterId: docs.coverLetterId,
         });
+        sync(id);
       },
       archiveApp: (id) => {
         const isArchived = Boolean(get().applications.find((app) => app.id === id)?.archivedAt);
@@ -371,6 +390,7 @@ export const useAppsStore = create<AppsState>()(
           },
         }));
         recordAudit('application', id, archivedAt ? 'archived' : 'unarchived');
+        sync(id);
       },
       deleteApp: (id) => {
         set((state) => ({
@@ -379,6 +399,7 @@ export const useAppsStore = create<AppsState>()(
           ),
         }));
         recordAudit('application', id, 'deleted');
+        sync(id);
       },
       reset: () => {
         const fresh = seedAll();
@@ -389,6 +410,7 @@ export const useAppsStore = create<AppsState>()(
           statusSortMode: fresh.statusSortMode,
         });
         recordAudit('demo', 'apps', 'reset');
+        syncReset();
       },
     }),
     {
