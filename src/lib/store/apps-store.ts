@@ -51,6 +51,8 @@ type AppsState = {
   addComment: (applicationId: Uuid, text: string) => void;
   addToWishlist: (listing: JobListing | DailyPick, source?: 'Jobs' | 'Research') => Application;
   applyCard: (id: Uuid, docs: { resumeId: Uuid; coverLetterId: Uuid | null }) => void;
+  archiveApp: (id: Uuid) => void;
+  deleteApp: (id: Uuid) => void;
   reset: () => void;
 };
 
@@ -106,7 +108,8 @@ export const useAppsStore = create<AppsState>()(
       activity: seed.activity,
       appDocs: seed.appDocs,
       statusSortMode: seed.statusSortMode,
-      getByDisplayId: (displayId) => get().applications.find((app) => app.displayId === displayId),
+      getByDisplayId: (displayId) =>
+        get().applications.find((app) => app.displayId === displayId && !app.deletedAt),
       createCard: (input) => {
         const displayId = nextDisplayId(get().applications);
         const now = new Date().toISOString();
@@ -348,6 +351,34 @@ export const useAppsStore = create<AppsState>()(
           resumeId: docs.resumeId,
           coverLetterId: docs.coverLetterId,
         });
+      },
+      archiveApp: (id) => {
+        const isArchived = Boolean(get().applications.find((app) => app.id === id)?.archivedAt);
+        const archivedAt = isArchived ? null : new Date().toISOString();
+        set((state) => ({
+          applications: state.applications.map((app) =>
+            app.id === id ? bump({ ...app, archivedAt }) : app,
+          ),
+          activity: {
+            ...state.activity,
+            [id]: {
+              ...(state.activity[id] ?? emptyActivity()),
+              history: [
+                historyEvent('field', archivedAt ? 'Card archived' : 'Card unarchived'),
+                ...(state.activity[id]?.history ?? []),
+              ],
+            },
+          },
+        }));
+        recordAudit('application', id, archivedAt ? 'archived' : 'unarchived');
+      },
+      deleteApp: (id) => {
+        set((state) => ({
+          applications: state.applications.map((app) =>
+            app.id === id ? { ...app, deletedAt: new Date().toISOString() } : app,
+          ),
+        }));
+        recordAudit('application', id, 'deleted');
       },
       reset: () => {
         const fresh = seedAll();

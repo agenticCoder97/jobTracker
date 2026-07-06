@@ -25,7 +25,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { NewApplicationDialog } from '@/components/jobtracker/NewApplicationDialog';
 import { DemoOnly } from '@/components/ui/DemoOnly';
-import { getCompanyLogoSources, resolveLogoCompany } from '@/lib/company-logos';
+import { getCompanyLogoSources, resolveLogoCompany, slugifyCompanyId } from '@/lib/company-logos';
 import { COMPANIES, STATUSES, TEAM } from '@/lib/data/seed';
 import { resolveIcon } from '@/lib/icon-map';
 import { useAppsStore } from '@/lib/store/apps-store';
@@ -37,7 +37,15 @@ import { companyNameOf } from '@/lib/utils/company-name';
 import { daysFrom, fmtDate } from '@/lib/utils/dates';
 import { gradeFor } from '@/lib/utils/ats';
 import { resolveOrder } from '@/lib/utils/sort-resolver';
-import type { Application, CompanyId, Priority, StatusId, TeamId, Uuid } from '@/lib/types';
+import type {
+  Application,
+  CompanyId,
+  Priority,
+  RemoteMode,
+  StatusId,
+  TeamId,
+  Uuid,
+} from '@/lib/types';
 
 type JobTrackerAppProps = {
   initialCardDisplayId?: string;
@@ -471,11 +479,15 @@ function BoardView() {
   const counts = useMemo(() => computeFilterCounts(applications), [applications]);
   const filteredApplications = useMemo(
     () =>
-      filterApplications(applications, boardFilter, {
-        company: boardCompanyFilter,
-        location: boardLocationFilter,
-        tag: boardTagFilter,
-      }),
+      filterApplications(
+        applications.filter((app) => !app.archivedAt && !app.deletedAt),
+        boardFilter,
+        {
+          company: boardCompanyFilter,
+          location: boardLocationFilter,
+          tag: boardTagFilter,
+        },
+      ),
     [applications, boardCompanyFilter, boardFilter, boardLocationFilter, boardTagFilter],
   );
   const companyOptions = useMemo(() => {
@@ -898,6 +910,9 @@ export function CardDetailDialog({ displayId }: { displayId: string }) {
   const router = useRouter();
   const application = useAppsStore((state) => state.getByDisplayId(displayId));
   const updateApp = useAppsStore((state) => state.updateApp);
+  const archiveApp = useAppsStore((state) => state.archiveApp);
+  const deleteApp = useAppsStore((state) => state.deleteApp);
+  const pushToast = useUiStore((state) => state.pushToast);
   const [tab, setTab] = useState<DetailTab>('overview');
   const hadInAppHistoryRef = useRef(false);
   useEffect(() => {
@@ -977,8 +992,6 @@ export function CardDetailDialog({ displayId }: { displayId: string }) {
               { icon: 'eye', label: 'Watch' },
               { icon: 'star', label: 'Star' },
               { icon: 'share-2', label: 'Share' },
-              { icon: 'archive', label: 'Archive' },
-              { icon: 'more-horizontal', label: 'More actions' },
             ] as const
           ).map(({ icon, label }) => (
             <DemoOnly key={icon} label={label} asChild>
@@ -987,6 +1000,36 @@ export function CardDetailDialog({ displayId }: { displayId: string }) {
               </button>
             </DemoOnly>
           ))}
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label={application.archivedAt ? 'Unarchive' : 'Archive'}
+            onClick={() => {
+              archiveApp(application.id);
+              pushToast({
+                message: application.archivedAt ? 'Card unarchived' : 'Card archived',
+              });
+            }}
+          >
+            <Icon name="archive" />
+          </button>
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label="Delete card"
+            onClick={() => {
+              if (
+                !window.confirm(`Delete ${application.displayId}? This removes it from your board.`)
+              ) {
+                return;
+              }
+              deleteApp(application.id);
+              pushToast({ message: 'Card deleted' });
+              close();
+            }}
+          >
+            <Icon name="trash-2" />
+          </button>
           <button className="icon-btn" aria-label="Close" onClick={close}>
             <Icon name="x" />
           </button>
@@ -1030,48 +1073,96 @@ export function CardDetailDialog({ displayId }: { displayId: string }) {
 }
 
 function CompanyLine({ application }: { application: Application }) {
+  const updateApp = useAppsStore((state) => state.updateApp);
   return (
     <div className="modal__company-line">
       <CompanyLogo companyId={application.company} size={24} radius={5} />
       <Link href={`/company/${application.company}`}>{companyNameOf(application)}</Link>
-      <span>{application.location}</span>
-      <span>·</span>
-      <button
-        style={{ border: 0, background: 'transparent', color: 'var(--gold)', cursor: 'pointer' }}
-        onClick={() =>
-          useUiStore
-            .getState()
-            .pushToast({ kind: 'info', message: 'Original posting is demo data.' })
+      <span
+        contentEditable
+        suppressContentEditableWarning
+        role="textbox"
+        aria-label="Location"
+        onBlur={(event) =>
+          updateApp(
+            application.id,
+            { location: event.currentTarget.textContent?.trim() || application.location },
+            'Location edited',
+          )
         }
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            event.currentTarget.blur();
+          }
+        }}
       >
-        View original posting
-      </button>
+        {application.location}
+      </span>
+      <span>·</span>
+      {application.postingUrl ? (
+        <a
+          href={application.postingUrl}
+          rel="noreferrer noopener"
+          target="_blank"
+          style={{ color: 'var(--gold)' }}
+        >
+          View original posting <Icon name="external-link" size={11} />
+        </a>
+      ) : (
+        <button
+          style={{ border: 0, background: 'transparent', color: 'var(--muted)', cursor: 'pointer' }}
+          type="button"
+          onClick={() => {
+            const url = window.prompt('Posting URL (https://...)');
+            if (url?.trim())
+              updateApp(application.id, { postingUrl: url.trim() }, 'Posting URL added');
+          }}
+        >
+          Add posting link
+        </button>
+      )}
     </div>
   );
 }
 
 function MetaRow({ application }: { application: Application }) {
+  const moveStatus = useAppsStore((state) => state.moveStatus);
+  const updateApp = useAppsStore((state) => state.updateApp);
   const status = STATUSES.find((item) => item.id === application.status);
   const priority = priorityMeta(application.priority);
+  const nextPriority: Record<Priority, Priority> = { high: 'med', med: 'low', low: 'high' };
   return (
     <div className="row-center" style={{ gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
-      <button className="status-pill" style={{ color: status?.color ?? 'var(--gold)' }}>
-        <span
-          style={{
-            width: 8,
-            height: 8,
-            borderRadius: '50%',
-            background: status?.dot ?? 'var(--gold)',
-          }}
-        />
-        {status?.title ?? application.status}
-      </button>
+      <select
+        aria-label="Change status"
+        className="status-pill"
+        style={{ color: status?.color ?? 'var(--gold)' }}
+        value={application.status}
+        onChange={(event) => moveStatus(application.id, event.target.value as StatusId)}
+      >
+        {STATUSES.map((item) => (
+          <option key={item.id} value={item.id}>
+            {item.title}
+          </option>
+        ))}
+      </select>
       <button
         className="priority-pill"
+        type="button"
+        aria-label={`Priority: ${priority.label}. Click to change.`}
         style={{ color: application.priority === 'high' ? 'var(--error)' : 'var(--warning)' }}
+        onClick={() =>
+          updateApp(
+            application.id,
+            { priority: nextPriority[application.priority] },
+            `Priority set to ${nextPriority[application.priority]}`,
+          )
+        }
       >
         <Icon name={priority.icon} size={12} /> {priority.label}
       </button>
+      {application.archivedAt ? <span className="chip">Archived</span> : null}
       {application.tags.map((tag) => (
         <span key={tag} className="chip is-tag">
           {tag}
@@ -1133,10 +1224,65 @@ function TabContent({ application, tab }: { application: Application; tab: Detai
 }
 
 function OverviewTab({ application }: { application: Application }) {
+  const updateApp = useAppsStore((state) => state.updateApp);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(application.description ?? '');
   return (
     <>
       <Section title="About the role">
-        <p>{application.description ?? 'No role description has been captured yet.'}</p>
+        {editing ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <textarea
+              aria-label="Role description"
+              rows={5}
+              style={{
+                width: '100%',
+                border: '1px solid var(--border)',
+                borderRadius: 8,
+                background: 'transparent',
+                color: 'var(--white)',
+                font: 'inherit',
+                padding: 8,
+              }}
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+            />
+            <div className="row-center" style={{ gap: 8 }}>
+              <button
+                className="astral-gold-btn"
+                type="button"
+                onClick={() => {
+                  updateApp(application.id, { description: draft.trim() }, 'Description edited');
+                  setEditing(false);
+                }}
+              >
+                Save
+              </button>
+              <button className="card-cta" type="button" onClick={() => setEditing(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p
+            role="button"
+            tabIndex={0}
+            style={{ cursor: 'text' }}
+            title="Click to edit"
+            onClick={() => {
+              setDraft(application.description ?? '');
+              setEditing(true);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                setDraft(application.description ?? '');
+                setEditing(true);
+              }
+            }}
+          >
+            {application.description ?? 'No role description yet - click to add one.'}
+          </p>
+        )}
       </Section>
       {application.requirements?.length ? (
         <Section title="What they want">
@@ -1394,6 +1540,7 @@ function HistoryTab({ application }: { application: Application }) {
 }
 
 function SidePanel({ application }: { application: Application }) {
+  const updateApp = useAppsStore((state) => state.updateApp);
   const salaryWidth = Math.min(
     100,
     Math.max(8, ((application.salaryMax - application.salaryMin) / 300) * 100),
@@ -1411,14 +1558,75 @@ function SidePanel({ application }: { application: Application }) {
         <SideRow label="Owner" value={<Avatar who="me" />} />
       </SideGroup>
       <SideGroup title="Role">
-        <SideRow label="Company" value={companyNameOf(application)} />
-        <SideRow label="Level" value={application.level} />
-        <SideRow label="Team" value={application.team} />
-        <SideRow label="Mode" value={application.remote} />
+        <EditableSideRow
+          label="Company"
+          value={companyNameOf(application)}
+          onCommit={(name) =>
+            updateApp(
+              application.id,
+              { companyName: name, company: slugifyCompanyId(name) },
+              'Company edited',
+            )
+          }
+        />
+        <EditableSideRow
+          label="Level"
+          value={application.level}
+          onCommit={(level) => updateApp(application.id, { level }, 'Level edited')}
+        />
+        <EditableSideRow
+          label="Team"
+          value={application.team}
+          onCommit={(team) => updateApp(application.id, { team }, 'Team edited')}
+        />
+        <div className="side__row">
+          <span>Mode</span>
+          <select
+            aria-label="Work mode"
+            className="side__value"
+            style={{
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              background: 'transparent',
+              color: 'var(--white)',
+            }}
+            value={application.remote}
+            onChange={(event) =>
+              updateApp(
+                application.id,
+                { remote: event.target.value as RemoteMode },
+                'Work mode edited',
+              )
+            }
+          >
+            <option>Remote</option>
+            <option>Hybrid</option>
+            <option>Onsite</option>
+          </select>
+        </div>
       </SideGroup>
       <SideGroup title="Compensation">
-        <SideRow label="Salary" value={`$${application.salaryMin}-${application.salaryMax}K`} />
-        <SideRow label="Equity" value={application.equity ?? 'Not listed'} />
+        <EditableSideRow
+          label="Salary min ($K)"
+          type="number"
+          value={String(application.salaryMin)}
+          onCommit={(value) =>
+            updateApp(application.id, { salaryMin: Number(value) || 0 }, 'Salary edited')
+          }
+        />
+        <EditableSideRow
+          label="Salary max ($K)"
+          type="number"
+          value={String(application.salaryMax)}
+          onCommit={(value) =>
+            updateApp(application.id, { salaryMax: Number(value) || 0 }, 'Salary edited')
+          }
+        />
+        <EditableSideRow
+          label="Equity"
+          value={application.equity ?? 'Not listed'}
+          onCommit={(equity) => updateApp(application.id, { equity }, 'Equity edited')}
+        />
         <div className="salary-bar" style={{ height: 8, marginTop: 12 }}>
           <div className="salary-bar__fill" style={{ width: `${salaryWidth}%` }} />
         </div>
@@ -1466,6 +1674,77 @@ function SideRow({ label, value }: { label: string; value: ReactNode }) {
     <div className="side__row">
       <span>{label}</span>
       <span className="side__value">{value}</span>
+    </div>
+  );
+}
+
+function EditableSideRow({
+  label,
+  value,
+  onCommit,
+  type = 'text',
+}: {
+  label: string;
+  value: string;
+  onCommit: (next: string) => void;
+  type?: 'text' | 'number';
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  if (!editing) {
+    return (
+      <div className="side__row">
+        <span>{label}</span>
+        <button
+          className="side__value side__value--editable"
+          style={{
+            border: 0,
+            background: 'transparent',
+            color: 'inherit',
+            cursor: 'pointer',
+            font: 'inherit',
+            textAlign: 'right',
+          }}
+          title={`Edit ${label.toLowerCase()}`}
+          type="button"
+          onClick={() => {
+            setDraft(value);
+            setEditing(true);
+          }}
+        >
+          {value}
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="side__row">
+      <span>{label}</span>
+      <input
+        autoFocus
+        aria-label={label}
+        style={{
+          width: 120,
+          border: '1px solid var(--border)',
+          borderRadius: 6,
+          background: 'transparent',
+          color: 'var(--white)',
+          font: 'inherit',
+          padding: '2px 6px',
+          textAlign: 'right',
+        }}
+        type={type}
+        value={draft}
+        onBlur={() => {
+          setEditing(false);
+          if (draft.trim() && draft !== value) onCommit(draft.trim());
+        }}
+        onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') event.currentTarget.blur();
+          if (event.key === 'Escape') setEditing(false);
+        }}
+      />
     </div>
   );
 }
