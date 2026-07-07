@@ -158,7 +158,7 @@ Vercel cron  ──► /api/cron/research
                     └─ close cron_runs row
 ```
 
-Default schedule: `0 */6 * * *` (every 6h). Tunable per-subscription via `cadence_cron`.
+Default schedule: `0 8 * * *` (daily at 08:00 UTC, compatible with Vercel Hobby). Tunable per-subscription via `cadence_cron`.
 
 ## 6. Logging & analytics wiring
 
