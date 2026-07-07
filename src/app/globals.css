@@ -1844,3 +1844,9 @@ a {
     grid-template-columns: 1fr;
   }
 }
+
+.attach-grid.is-dragover {
+  outline: 2px dashed var(--gold);
+  outline-offset: 4px;
+  border-radius: 8px;
+}

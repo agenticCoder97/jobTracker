@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { seedAll } from '@/lib/data/seed';
-import { queuePersist, __resetSyncForTests } from '@/lib/store/apps-sync';
+import {
+  hydrateFromServer,
+  queuePersist,
+  resetServer,
+  __resetSyncForTests,
+} from '@/lib/store/apps-sync';
 import { useAppsStore } from '@/lib/store/apps-store';
 
 describe('apps-sync queuePersist', () => {
@@ -54,5 +59,23 @@ describe('apps-sync queuePersist', () => {
     queuePersist(app.id);
     await vi.advanceTimersByTimeAsync(500);
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  test('hydrateFromServer applies an empty server board without importing local data', async () => {
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ applications: [], activity: {}, appDocs: {} }),
+    });
+    const outcome = await hydrateFromServer();
+    expect(outcome).toBe('server');
+    expect(useAppsStore.getState().applications).toEqual([]);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledWith('/api/apps');
+  });
+
+  test('resetServer only clears the server board', async () => {
+    await resetServer();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledWith('/api/apps', { method: 'DELETE' });
   });
 });

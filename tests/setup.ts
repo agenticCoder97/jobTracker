@@ -24,7 +24,8 @@ let uuidCounter = 0;
 Object.defineProperty(globalThis.crypto, 'randomUUID', {
   value: () => {
     uuidCounter += 1;
-    return `00000000-0000-0000-0000-${String(uuidCounter).padStart(12, '0')}`;
+    const hex = String(uuidCounter).padStart(12, '0');
+    return `00000000-0000-4000-8000-${hex}`;
   },
 });
 

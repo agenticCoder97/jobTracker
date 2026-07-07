@@ -197,12 +197,20 @@ export type HistoryEvent = {
   text: string;
 };
 export type ApplicationLink = { id: Uuid; type: string; title: string; meta: string };
+export type AttachmentSource = 'upload' | 'resume' | 'cover-letter';
 export type Attachment = {
   id: Uuid;
   name: string;
-  kind: 'pdf' | 'zip' | 'xls' | 'img' | 'ics';
+  kind: 'pdf' | 'zip' | 'xls' | 'img' | 'ics' | 'doc' | 'file';
   size: string;
   when: IsoDateTime;
+  /** Supabase Storage object path (supabase adapter). */
+  storagePath?: string;
+  /** Inline data URL (local adapter, small files only). */
+  dataUrl?: string;
+  source?: AttachmentSource;
+  /** Library document id when source is 'resume' | 'cover-letter'. */
+  sourceDocId?: Uuid;
 };
 export type Activity = {
   comments: Comment[];
@@ -234,6 +242,8 @@ export type Resume = Audited & {
   name: string;
   flavor: string;
   file: string;
+  storagePath?: string;
+  dataUrl?: string;
   size: string;
   pages: number;
   updated: IsoDateTime;
@@ -247,6 +257,8 @@ export type CoverLetter = Audited & {
   name: string;
   flavor: string;
   file: string;
+  storagePath?: string;
+  dataUrl?: string;
   size: string;
   updated: IsoDateTime;
   isDefault: boolean;

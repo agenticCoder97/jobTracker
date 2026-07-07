@@ -104,32 +104,14 @@ export type ServerAppsState = {
 
 /**
  * Hydrate the store from the server. Returns 'server' when server data was
- * applied, 'imported' when the local board was carried over to an empty
- * server, 'offline' when the request failed (local data kept).
+ * applied (the server is the source of truth, even when empty), 'offline'
+ * when the request failed (local data kept as an offline cache).
  */
-export async function hydrateFromServer(): Promise<'server' | 'imported' | 'offline'> {
+export async function hydrateFromServer(): Promise<'server' | 'offline'> {
   if (!syncEnabled()) return 'offline';
   const response = await fetch('/api/apps').catch(() => null);
   if (!response?.ok) return 'offline';
   const server = (await response.json()) as ServerAppsState;
-
-  if (server.applications.length === 0) {
-    const local = useAppsStore.getState();
-    if (local.applications.length > 0) {
-      await fetch('/api/apps/import', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          applications: local.applications,
-          activity: local.activity,
-          appDocs: local.appDocs,
-        }),
-      }).catch(() => null);
-      return 'imported';
-    }
-    return 'server';
-  }
-
   useAppsStore.setState({
     applications: server.applications as never,
     activity: server.activity as never,
@@ -138,18 +120,8 @@ export async function hydrateFromServer(): Promise<'server' | 'imported' | 'offl
   return 'server';
 }
 
-/** Clear the server board, then re-import current local state (used by reset). */
+/** Clear the server board (used by reset in supabase mode). */
 export async function resetServer(): Promise<void> {
   if (!syncEnabled() || typeof window === 'undefined') return;
   await fetch('/api/apps', { method: 'DELETE' }).catch(() => null);
-  const local = useAppsStore.getState();
-  await fetch('/api/apps/import', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      applications: local.applications,
-      activity: local.activity,
-      appDocs: local.appDocs,
-    }),
-  }).catch(() => null);
 }

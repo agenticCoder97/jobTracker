@@ -1,18 +1,21 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { CompanyLogo, Icon } from '@/components/jobtracker/JobTrackerApp';
 import { AppShell } from '@/components/layout/AppShell';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DemoOnly } from '@/components/ui/DemoOnly';
+import { deleteStoredFile, openStoredFile, storeFile } from '@/lib/files/client';
 import { resetDemoData } from '@/lib/store/reset-demo-data';
 import { useAppsStore } from '@/lib/store/apps-store';
 import { useProfileStore } from '@/lib/store/profile-store';
+import { useUiStore } from '@/lib/store/ui-store';
 import { useProfileTab, type ProfileTab } from '@/lib/url-params/use-profile-tab';
 import { fmtDate } from '@/lib/utils/dates';
+import type { Uuid } from '@/lib/types';
 
 const aboutSchema = z.object({ about: z.string().min(1).max(2000) });
 
@@ -226,9 +229,7 @@ function DocumentsTab({ kind }: { kind: 'resume' | 'cover' }) {
     <div className="profile-card">
       <div className="profile-card-head">
         <h2>{kind === 'resume' ? 'Resumes' : 'Cover letters'}</h2>
-        <DemoOnly className="card-cta" label={`Upload ${kind}`}>
-          Upload
-        </DemoOnly>
+        <UploadDocumentButton kind={kind} />
       </div>
       {kind === 'resume'
         ? resumes.map((doc) => (
@@ -260,7 +261,7 @@ function DocumentsTab({ kind }: { kind: 'resume' | 'cover' }) {
                   Set default
                 </button>
               )}
-              <DocumentRowActions name={doc.name} />
+              <DocumentRowActions doc={doc} kind="resume" />
             </div>
           ))
         : covers.map((doc) => (
@@ -280,28 +281,124 @@ function DocumentsTab({ kind }: { kind: 'resume' | 'cover' }) {
                   Set default
                 </button>
               )}
-              <DocumentRowActions name={doc.name} />
+              <DocumentRowActions doc={doc} kind="cover" />
             </div>
           ))}
     </div>
   );
 }
 
-function DocumentRowActions({ name }: { name: string }) {
+export function UploadDocumentButton({ kind }: { kind: 'resume' | 'cover' }) {
+  const addResume = useProfileStore((state) => state.addResume);
+  const addCoverLetter = useProfileStore((state) => state.addCoverLetter);
+  const pushToast = useUiStore((state) => state.pushToast);
+  const [busy, setBusy] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const label = kind === 'resume' ? 'Upload resume' : 'Upload cover letter';
+
+  async function handleFile(file: File) {
+    setBusy(true);
+    try {
+      const stored = await storeFile(file, kind === 'resume' ? 'resume' : 'cover-letter');
+      const base = {
+        name: file.name.replace(/\.[^.]+$/, ''),
+        flavor: 'Uploaded',
+        file: file.name,
+        size: stored.size,
+        updated: new Date().toISOString(),
+        isDefault: false,
+        timesUsed: 0,
+        ...(stored.storagePath !== undefined ? { storagePath: stored.storagePath } : {}),
+        ...(stored.dataUrl !== undefined ? { dataUrl: stored.dataUrl } : {}),
+      };
+      if (kind === 'resume') {
+        addResume({ ...base, pages: 1, keywords: [], summary: '' });
+      } else {
+        addCoverLetter(base);
+      }
+      pushToast({ message: `${file.name} uploaded` });
+    } catch (error) {
+      pushToast({
+        kind: 'error',
+        message: error instanceof Error ? error.message : 'Upload failed',
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <>
-      <DemoOnly className="card-cta" label={`Preview ${name}`}>
-        Preview
-      </DemoOnly>
-      <DemoOnly className="card-cta" label={`Edit ${name}`}>
+      <input
+        ref={inputRef}
+        hidden
+        accept=".pdf,.doc,.docx"
+        aria-label={label}
+        type="file"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) void handleFile(file);
+          event.target.value = '';
+        }}
+      />
+      <button
+        className="card-cta"
+        disabled={busy}
+        type="button"
+        onClick={() => inputRef.current?.click()}
+      >
+        {busy ? 'Uploading...' : 'Upload'}
+      </button>
+    </>
+  );
+}
+
+function DocumentRowActions({
+  doc,
+  kind,
+}: {
+  doc: { id: Uuid; name: string; storagePath?: string; dataUrl?: string };
+  kind: 'resume' | 'cover';
+}) {
+  const removeResume = useProfileStore((state) => state.removeResume);
+  const removeCoverLetter = useProfileStore((state) => state.removeCoverLetter);
+  const pushToast = useUiStore((state) => state.pushToast);
+  const hasFile = Boolean(doc.storagePath ?? doc.dataUrl);
+  return (
+    <>
+      {hasFile ? (
+        <button
+          className="card-cta"
+          type="button"
+          onClick={() =>
+            void openStoredFile(doc).catch(() =>
+              pushToast({ kind: 'error', message: 'Could not open this file.' }),
+            )
+          }
+        >
+          Download
+        </button>
+      ) : (
+        <DemoOnly className="card-cta" label={`Preview ${doc.name}`}>
+          Preview
+        </DemoOnly>
+      )}
+      <DemoOnly className="card-cta" label={`Edit ${doc.name}`}>
         Edit
       </DemoOnly>
-      <DemoOnly className="card-cta" label={`Duplicate ${name}`}>
-        Duplicate
-      </DemoOnly>
-      <DemoOnly className="card-cta is-danger" label={`Delete ${name}`}>
+      <button
+        className="card-cta"
+        type="button"
+        onClick={() => {
+          if (!window.confirm(`Delete ${doc.name}? This removes it from your library.`)) return;
+          void deleteStoredFile(doc);
+          if (kind === 'resume') removeResume(doc.id);
+          else removeCoverLetter(doc.id);
+          pushToast({ message: `${doc.name} deleted` });
+        }}
+      >
         Delete
-      </DemoOnly>
+      </button>
     </>
   );
 }
