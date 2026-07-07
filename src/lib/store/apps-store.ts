@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import { seedAll, seedUuid, type SortMode } from '@/lib/data/seed';
+import { seedAll, type SortMode } from '@/lib/data/seed';
 import { computeAts } from '@/lib/utils/ats';
 import { daysAgo } from '@/lib/utils/dates';
 import { slugifyCompanyId } from '@/lib/company-logos';
@@ -18,6 +18,7 @@ import type {
   StatusId,
   Uuid,
 } from '@/lib/types';
+import { DEMO_USER_ID } from '@/lib/types';
 import { useProfileStore } from '@/lib/store/profile-store';
 import { recordAudit } from '@/lib/store/audit';
 
@@ -126,8 +127,8 @@ export const useAppsStore = create<AppsState>()(
         const displayId = nextDisplayId(get().applications);
         const now = new Date().toISOString();
         const app: Application = {
-          id: seedUuid(displayId),
-          ownerUserId: seed.applications[0]?.ownerUserId ?? '00000000-0000-0000-0000-000000000001',
+          id: crypto.randomUUID(),
+          ownerUserId: DEMO_USER_ID,
           createdAt: now,
           updatedAt: now,
           deletedAt: null,
@@ -272,8 +273,8 @@ export const useAppsStore = create<AppsState>()(
             ? input.salary.split('+').at(1)?.trim()
             : undefined;
         const app: Application = {
-          id: seedUuid(displayId),
-          ownerUserId: seed.applications[0]?.ownerUserId ?? '00000000-0000-0000-0000-000000000001',
+          id: crypto.randomUUID(),
+          ownerUserId: DEMO_USER_ID,
           createdAt: now,
           updatedAt: now,
           deletedAt: null,
