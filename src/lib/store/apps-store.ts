@@ -11,7 +11,9 @@ import { getPersistenceAdapter } from '@/lib/supabase/env';
 import type {
   Activity,
   AppDocs,
+  ApplicationLink,
   Application,
+  Attachment,
   DailyPick,
   HistoryEvent,
   JobListing,
@@ -65,6 +67,10 @@ type AppsState = {
   reorderInStatus: (status: StatusId, orderedIds: Uuid[]) => void;
   setStatusSortMode: (status: StatusId, mode: SortMode) => void;
   addComment: (applicationId: Uuid, text: string) => void;
+  addAttachment: (applicationId: Uuid, input: Omit<Attachment, 'id' | 'when'>) => Attachment;
+  removeAttachment: (applicationId: Uuid, attachmentId: Uuid) => void;
+  addLink: (applicationId: Uuid, input: Omit<ApplicationLink, 'id'>) => void;
+  removeLink: (applicationId: Uuid, linkId: Uuid) => void;
   addToWishlist: (listing: JobListing | DailyPick, source?: 'Jobs' | 'Research') => Application;
   applyCard: (id: Uuid, docs: { resumeId: Uuid; coverLetterId: Uuid | null }) => void;
   archiveApp: (id: Uuid) => void;
@@ -272,6 +278,112 @@ export const useAppsStore = create<AppsState>()(
           ),
         }));
         recordAudit('application', applicationId, 'comment_added');
+        sync(applicationId);
+      },
+      addAttachment: (applicationId, input) => {
+        const attachment: Attachment = {
+          ...input,
+          id: crypto.randomUUID(),
+          when: new Date().toISOString(),
+        };
+        const text =
+          input.source === 'resume'
+            ? `Resume linked: ${input.name}`
+            : input.source === 'cover-letter'
+              ? `Cover letter linked: ${input.name}`
+              : `Attachment added: ${input.name}`;
+        set((state) => ({
+          activity: {
+            ...state.activity,
+            [applicationId]: {
+              ...(state.activity[applicationId] ?? emptyActivity()),
+              attachments: [attachment, ...(state.activity[applicationId]?.attachments ?? [])],
+              history: [
+                historyEvent('attach', text),
+                ...(state.activity[applicationId]?.history ?? []),
+              ],
+            },
+          },
+          applications: state.applications.map((app) =>
+            app.id === applicationId ? bump(app) : app,
+          ),
+        }));
+        recordAudit('application', applicationId, 'attachment_added', {
+          name: input.name,
+          source: input.source ?? 'upload',
+        });
+        sync(applicationId);
+        return attachment;
+      },
+      removeAttachment: (applicationId, attachmentId) => {
+        const target = get().activity[applicationId]?.attachments.find(
+          (item) => item.id === attachmentId,
+        );
+        if (!target) return;
+        set((state) => ({
+          activity: {
+            ...state.activity,
+            [applicationId]: {
+              ...(state.activity[applicationId] ?? emptyActivity()),
+              attachments: (state.activity[applicationId]?.attachments ?? []).filter(
+                (item) => item.id !== attachmentId,
+              ),
+              history: [
+                historyEvent('attach', `Attachment removed: ${target.name}`),
+                ...(state.activity[applicationId]?.history ?? []),
+              ],
+            },
+          },
+          applications: state.applications.map((app) =>
+            app.id === applicationId ? bump(app) : app,
+          ),
+        }));
+        recordAudit('application', applicationId, 'attachment_removed', { name: target.name });
+        sync(applicationId);
+      },
+      addLink: (applicationId, input) => {
+        const link: ApplicationLink = { ...input, id: crypto.randomUUID() };
+        set((state) => ({
+          activity: {
+            ...state.activity,
+            [applicationId]: {
+              ...(state.activity[applicationId] ?? emptyActivity()),
+              links: [link, ...(state.activity[applicationId]?.links ?? [])],
+              history: [
+                historyEvent('link', `Link added: ${input.title}`),
+                ...(state.activity[applicationId]?.history ?? []),
+              ],
+            },
+          },
+          applications: state.applications.map((app) =>
+            app.id === applicationId ? bump(app) : app,
+          ),
+        }));
+        recordAudit('application', applicationId, 'link_added', { title: input.title });
+        sync(applicationId);
+      },
+      removeLink: (applicationId, linkId) => {
+        const target = get().activity[applicationId]?.links.find((item) => item.id === linkId);
+        if (!target) return;
+        set((state) => ({
+          activity: {
+            ...state.activity,
+            [applicationId]: {
+              ...(state.activity[applicationId] ?? emptyActivity()),
+              links: (state.activity[applicationId]?.links ?? []).filter(
+                (item) => item.id !== linkId,
+              ),
+              history: [
+                historyEvent('link', `Link removed: ${target.title}`),
+                ...(state.activity[applicationId]?.history ?? []),
+              ],
+            },
+          },
+          applications: state.applications.map((app) =>
+            app.id === applicationId ? bump(app) : app,
+          ),
+        }));
+        recordAudit('application', applicationId, 'link_removed', { title: target.title });
         sync(applicationId);
       },
       addToWishlist: (input, source = 'Jobs') => {
