@@ -28,6 +28,7 @@ import { DemoOnly } from '@/components/ui/DemoOnly';
 import { getCompanyLogoSources, resolveLogoCompany, slugifyCompanyId } from '@/lib/company-logos';
 import { COMPANIES, STATUSES, TEAM } from '@/lib/data/seed';
 import { deleteStoredFile, openStoredFile, storeFile } from '@/lib/files/client';
+import { fileKindOf } from '@/lib/files/kind';
 import { resolveIcon } from '@/lib/icon-map';
 import { useAppsStore } from '@/lib/store/apps-store';
 import { useNotificationsStore } from '@/lib/store/notifications-store';
@@ -1606,10 +1607,70 @@ function LinkDocumentPicker({
   application: Application;
   onClose: () => void;
 }) {
-  void application;
+  const resumes = useProfileStore((state) => state.resumes);
+  const coverLetters = useProfileStore((state) => state.coverLetters);
+  const attachments = useAppsStore((state) => state.activity[application.id]?.attachments);
+  const addAttachment = useAppsStore((state) => state.addAttachment);
+  const pushToast = useUiStore((state) => state.pushToast);
+
+  function isLinked(docId: string): boolean {
+    return (attachments ?? []).some((item) => item.sourceDocId === docId);
+  }
+
+  function link(
+    source: 'resume' | 'cover-letter',
+    doc: {
+      id: Uuid;
+      name: string;
+      file: string;
+      size: string;
+      storagePath?: string;
+      dataUrl?: string;
+    },
+  ) {
+    addAttachment(application.id, {
+      name: doc.name,
+      kind: fileKindOf(doc.file),
+      size: doc.size,
+      source,
+      sourceDocId: doc.id,
+      ...(doc.storagePath !== undefined ? { storagePath: doc.storagePath } : {}),
+      ...(doc.dataUrl !== undefined ? { dataUrl: doc.dataUrl } : {}),
+    });
+    pushToast({ message: `${doc.name} linked` });
+    onClose();
+  }
+
+  const rows = [
+    ...resumes.map((doc) => ({ doc, source: 'resume' as const, label: 'Resume' })),
+    ...coverLetters.map((doc) => ({ doc, source: 'cover-letter' as const, label: 'Cover letter' })),
+  ];
+
   return (
-    <div className="empty-state" style={{ marginBottom: 12 }}>
-      Document linking lands in a follow-up task.{' '}
+    <div className="linked-list" style={{ marginBottom: 12 }}>
+      {rows.length ? (
+        rows.map(({ doc, source, label }) => (
+          <div key={doc.id} className="linked-row row-center" style={{ gap: 8 }}>
+            <span className="chip is-tag">{label}</span>
+            <strong style={{ color: 'var(--white)' }}>{doc.name}</strong>
+            <span style={{ color: 'var(--muted)' }}>{doc.size}</span>
+            <span className="grow" />
+            <button
+              aria-label={`Link ${doc.name}`}
+              className="card-cta"
+              disabled={isLinked(doc.id)}
+              type="button"
+              onClick={() => link(source, doc)}
+            >
+              {isLinked(doc.id) ? 'Linked' : 'Link'}
+            </button>
+          </div>
+        ))
+      ) : (
+        <div className="empty-state">
+          No documents in your library yet - upload one on the Profile page.
+        </div>
+      )}
       <button className="card-cta" type="button" onClick={onClose}>
         Close
       </button>
