@@ -25,7 +25,7 @@ export const jsearch: JobProvider = {
         jobs: [],
         report: {
           providerId: 'jsearch',
-          requestPath: '/search',
+          requestPath: '/search-v2',
           httpStatus: 0,
           latencyMs: 0,
           error: 'missing RAPIDAPI_KEY',
@@ -35,12 +35,12 @@ export const jsearch: JobProvider = {
 
     const params = new URLSearchParams({
       query: [...(query.keywords ?? []), query.location ?? ''].join(' ').trim() || 'software',
-      page: String(query.page ?? 1),
-      num_pages: '1',
+      country: 'us',
+      language: 'en',
     });
-    if (query.remote === 'remote') params.set('remote_jobs_only', 'true');
+    if (query.remote === 'remote') params.set('work_from_home', 'true');
 
-    const url = `https://${host}/search?${params}`;
+    const url = `https://${host}/search-v2?${params}`;
     const { data, report } = await fetchProvider<JSearchResponse>({
       providerId: 'jsearch',
       url,
@@ -53,7 +53,8 @@ export const jsearch: JobProvider = {
       rateLimitHeader: 'x-ratelimit-requests-remaining',
     });
 
-    const jobs: ExternalJob[] = (data?.data ?? []).map((j) => ({
+    const results = Array.isArray(data?.data) ? data.data : (data?.data?.jobs ?? []);
+    const jobs: ExternalJob[] = results.map((j) => ({
       sourceProvider: 'jsearch',
       sourceId: j.job_id,
       title: j.job_title,
@@ -75,7 +76,7 @@ export const jsearch: JobProvider = {
   },
 };
 
-type JSearchResponse = { data?: JSearchJob[] };
+type JSearchResponse = { data?: JSearchJob[] | { jobs?: JSearchJob[]; cursor?: string } };
 type JSearchJob = {
   job_id: string;
   job_title: string;
