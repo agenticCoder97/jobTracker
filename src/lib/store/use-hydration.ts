@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { hydrateFromServer } from '@/lib/store/apps-sync';
+import { hydrateDocumentsFromServer } from '@/lib/store/docs-sync';
 import { useAppsStore } from '@/lib/store/apps-store';
 import { useNotificationsStore } from '@/lib/store/notifications-store';
 import { useProfileStore } from '@/lib/store/profile-store';
@@ -18,7 +19,7 @@ export function useHydration(): boolean {
       useNotificationsStore.persist.rehydrate(),
     ])
       .then(async () => {
-        const outcome = await hydrateFromServer();
+        const [outcome] = await Promise.all([hydrateFromServer(), hydrateDocumentsFromServer()]);
         if (outcome === 'offline' && process.env.NEXT_PUBLIC_PERSISTENCE_ADAPTER === 'supabase') {
           useUiStore.getState().pushToast({
             kind: 'error',
