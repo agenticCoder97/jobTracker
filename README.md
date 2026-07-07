@@ -18,6 +18,7 @@ Plans live in `docs/superpowers/plans/`. The source design spec is `docs/superpo
 - `docs/deployment/build-report.md` — route sizes from the latest production build.
 - `docs/deployment/release-checklist.md` — pre-merge / merge / rollback steps.
 - `docs/backend/supabase-roadmap.md` — repository contract and milestones for the future Supabase adapter.
+- `docs/backend/supabase-bootstrap.sql` — starter Supabase schema + RLS policies aligned with roadmap milestones.
 
 ## Runtime limitations (v1)
 
@@ -33,6 +34,21 @@ corepack pnpm dev
 ```
 
 Open `http://localhost:3000`.
+
+## Supabase setup (in progress)
+
+The app still runs local-only by default, but Supabase scaffolding is now available.
+
+1. Add env vars to your local `.env.local`:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=your_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+NEXT_PUBLIC_PERSISTENCE_ADAPTER=local
+```
+
+2. Keep `NEXT_PUBLIC_PERSISTENCE_ADAPTER=local` until the Supabase repositories are fully implemented.
+3. Once implemented, switch to `supabase`; if env vars are missing, the app automatically falls back to `local` with a warning.
 
 ## Verification
 

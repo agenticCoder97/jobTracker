@@ -34,6 +34,7 @@ export const ICON_MAP: Record<string, string> = {
   star: 'star',
   'share-2': 'share',
   archive: 'archive',
+  'trash-2': 'delete',
   x: 'close',
   'file-text': 'description',
   link: 'link',

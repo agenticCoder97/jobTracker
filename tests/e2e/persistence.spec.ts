@@ -1,0 +1,39 @@
+import { expect, test } from '@playwright/test';
+
+/**
+ * Requires a live Supabase-backed dev server. Skipped in CI/local runs without
+ * the adapter and server-side admin key enabled.
+ */
+const supabaseEnabled =
+  process.env.NEXT_PUBLIC_PERSISTENCE_ADAPTER === 'supabase' &&
+  Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL) &&
+  Boolean(process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+test.describe('board persistence', () => {
+  test.skip(!supabaseEnabled, 'supabase adapter not configured');
+
+  test('manually created application survives localStorage wipe', async ({ page, request }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: /^create$/i }).click();
+    await page.locator('#na-company').fill('Persistence Test Co');
+    await page.locator('#na-role').fill('E2E Engineer');
+    await page.getByRole('button', { name: /create application/i }).click();
+    await expect(page.getByText('E2E Engineer').first()).toBeVisible();
+
+    await expect
+      .poll(async () => {
+        const response = await request.get('/api/apps');
+        const state = await response.json();
+        return state.applications.some(
+          (app: { companyName?: string; role?: string }) =>
+            app.companyName === 'Persistence Test Co' && app.role === 'E2E Engineer',
+        );
+      })
+      .toBe(true);
+
+    await page.evaluate(() => window.localStorage.clear());
+    await page.reload();
+    await expect(page.getByText('Persistence Test Co').first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('E2E Engineer').first()).toBeVisible();
+  });
+});

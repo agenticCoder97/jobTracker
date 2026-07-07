@@ -15,7 +15,9 @@ beforeEach(() => {
 
 describe('audit events from store actions', () => {
   test('createCard appends a created audit event', () => {
-    const card = useAppsStore.getState().createCard('wishlist');
+    const card = useAppsStore
+      .getState()
+      .createCard({ status: 'wishlist', companyName: 'New company', role: 'New application' });
     const events = eventLog.listAudit({ entityId: card.id });
     expect(events.some((e) => e.event === 'created' && e.entityType === 'application')).toBe(true);
   });
@@ -72,7 +74,9 @@ describe('audit events from store actions', () => {
   });
 
   test('audit events carry entityType, entityId, event, createdAt, ownerUserId', () => {
-    useAppsStore.getState().createCard('wishlist');
+    useAppsStore
+      .getState()
+      .createCard({ status: 'wishlist', companyName: 'New company', role: 'New application' });
     const event = eventLog.listAudit().at(-1);
     expect(event).toBeDefined();
     expect(event!.entityType).toBeTruthy();

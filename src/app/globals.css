@@ -1790,3 +1790,57 @@ a {
   gap: 10px;
   margin-top: 6px;
 }
+
+.new-app-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.new-app-form__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.new-app-form__field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.new-app-form__field input,
+.new-app-form__field select,
+.new-app-form__field textarea {
+  width: 100%;
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--elevated);
+  color: var(--white);
+  font: inherit;
+  outline: none;
+  padding: 8px 10px;
+}
+
+.new-app-form__field textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.new-app-form__field input:focus,
+.new-app-form__field select:focus,
+.new-app-form__field textarea:focus {
+  border-color: rgba(201, 168, 76, 0.65);
+}
+
+.form-error {
+  color: var(--error);
+  font-size: 12px;
+}
+
+@media (max-width: 640px) {
+  .new-app-form__row {
+    grid-template-columns: 1fr;
+  }
+}
