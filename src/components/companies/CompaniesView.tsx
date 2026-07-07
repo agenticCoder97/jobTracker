@@ -3,44 +3,62 @@
 import Link from 'next/link';
 import { CompanyLogo, Icon } from '@/components/jobtracker/JobTrackerApp';
 import { AppShell } from '@/components/layout/AppShell';
-import { DemoOnly } from '@/components/ui/DemoOnly';
-import { COMPANIES, COMPANY_DETAILS } from '@/lib/data/seed';
+import { COMPANY_DETAILS } from '@/lib/data/seed';
+import { useCompanyWatch } from '@/lib/client/use-company-watch';
+import { useLiveCompanies, type LiveCompany } from '@/lib/client/use-live-companies';
 import { useAppsStore } from '@/lib/store/apps-store';
 import { useUiStore, type CompaniesSort } from '@/lib/store/ui-store';
 import type { CompanyDetail } from '@/lib/types';
 
-type CompanyRow = CompanyDetail & {
-  name: string;
+const isSupabase = process.env.NEXT_PUBLIC_PERSISTENCE_ADAPTER === 'supabase';
+
+export type CompanyRow = LiveCompany & {
   appsHere: number;
+  detail: CompanyDetail | null;
 };
 
-export function useSortedCompanies(): CompanyRow[] {
+export function useSortedCompanies(): { rows: CompanyRow[]; loading: boolean } {
+  const { companies, loading } = useLiveCompanies();
   const applications = useAppsStore((state) => state.applications);
   const search = useUiStore((state) => state.companiesSearch);
   const sort = useUiStore((state) => state.companiesSort);
   const query = search.trim().toLowerCase();
-  const rows = Object.values(COMPANY_DETAILS)
-    .map((detail) => ({
-      ...detail,
-      name: COMPANIES[detail.id]?.name ?? detail.id,
-      appsHere: applications.filter((app) => app.company === detail.id).length,
-    }))
+
+  const rows: CompanyRow[] = companies
+    .map((company) => {
+      const detail = COMPANY_DETAILS[company.id] ?? null;
+      return {
+        ...company,
+        // Seed companies carry a static demo open-role count on CompanyDetail;
+        // live companies get their count from cached external_jobs. Prefer
+        // the live count and fall back to the demo number only when the live
+        // pipeline hasn't produced one yet (keeps the local/demo grid from
+        // regressing to all-zero counts).
+        openRoles: company.openRoles > 0 ? company.openRoles : (detail?.openRoles ?? 0),
+        appsHere: applications.filter((app) => app.company === company.id).length,
+        detail,
+      };
+    })
     .filter((company) =>
       query
-        ? `${company.name} ${company.industry} ${company.hq}`.toLowerCase().includes(query)
+        ? `${company.name} ${company.detail?.industry ?? ''} ${company.detail?.hq ?? ''}`
+            .toLowerCase()
+            .includes(query)
         : true,
     );
 
-  return rows.sort((a, b) => {
+  rows.sort((a, b) => {
     if (sort === 'open') return b.openRoles - a.openRoles;
-    if (sort === 'comp') return b.medianComp - a.medianComp;
+    if (sort === 'comp') return (b.detail?.medianComp ?? 0) - (a.detail?.medianComp ?? 0);
     if (sort === 'name') return a.name.localeCompare(b.name);
-    return b.rating - a.rating;
+    return (b.detail?.rating ?? 0) - (a.detail?.rating ?? 0);
   });
+
+  return { rows, loading };
 }
 
 export function CompaniesView() {
-  const companies = useSortedCompanies();
+  const { rows: companies, loading } = useSortedCompanies();
   return (
     <AppShell>
       <main className="scroll-view">
@@ -57,6 +75,12 @@ export function CompaniesView() {
             <CompanyCard key={company.id} company={company} />
           ))}
         </div>
+        {loading ? <div className="empty-state">Loading companies...</div> : null}
+        {!loading && isSupabase && companies.length === 0 ? (
+          <div className="empty-state">
+            No companies yet. Refresh from Research to pull in live roles.
+          </div>
+        ) : null}
       </main>
     </AppShell>
   );
@@ -99,6 +123,17 @@ function CompaniesFilterBar() {
 }
 
 function CompanyCard({ company }: { company: CompanyRow }) {
+  const pushToast = useUiStore((state) => state.pushToast);
+  const { watched, pending, toggle } = useCompanyWatch(company.id, company.watched);
+  const detail = company.detail;
+
+  async function onToggleWatch() {
+    const ok = await toggle();
+    if (!ok) {
+      pushToast({ kind: 'error', message: `Could not update watchlist for ${company.name}` });
+    }
+  }
+
   return (
     <article className="company-card">
       <Link className="company-card__main" href={`/company/${company.id}`}>
@@ -107,29 +142,38 @@ function CompanyCard({ company }: { company: CompanyRow }) {
           <div>
             <h2>{company.name}</h2>
             <p>
-              {company.industry} · {company.hq}
+              {detail ? `${detail.industry} · ${detail.hq}` : '—'}
             </p>
           </div>
-          <div className="pick__match" data-demo-data="true">
-            <span className="pick__match-num">
-              <Icon name="star" size={13} /> {company.rating}
-            </span>
-            <span>Glassdoor (demo)</span>
+          <div className="pick__match" data-demo-data={detail ? 'true' : undefined}>
+            {detail ? (
+              <>
+                <span className="pick__match-num">
+                  <Icon name="star" size={13} /> {detail.rating}
+                </span>
+                <span>Glassdoor (demo)</span>
+              </>
+            ) : (
+              <span className="pick__match-num">—</span>
+            )}
           </div>
         </div>
         <p>
-          <Icon name="groups" size={12} /> {company.size} employees · est. {company.founded}
+          <Icon name="groups" size={12} />{' '}
+          {detail ? `${detail.size} employees · est. ${detail.founded}` : '—'}
         </p>
         <p>
-          <Icon name="payments" size={12} /> Median comp ${company.medianComp}K ·{' '}
-          {company.fundingStage}
+          <Icon name="payments" size={12} />{' '}
+          {detail ? `Median comp $${detail.medianComp}K · ${detail.fundingStage}` : '—'}
         </p>
         <p>
-          <Icon name="trending_up" size={12} /> CEO approval {company.ceoApproval}% · recommend{' '}
-          {company.recommendFriend}%
+          <Icon name="trending_up" size={12} />{' '}
+          {detail
+            ? `CEO approval ${detail.ceoApproval}% · recommend ${detail.recommendFriend}%`
+            : '—'}
         </p>
         <div className="app-card__chips">
-          {company.tags.map((tag) => (
+          {(detail?.tags ?? []).map((tag) => (
             <span key={tag} className="chip is-tag">
               {tag}
             </span>
@@ -141,12 +185,37 @@ function CompanyCard({ company }: { company: CompanyRow }) {
         <Link className="card-cta is-primary" href={`/company/${company.id}`}>
           <Icon name="work" size={12} /> {company.openRoles} open roles
         </Link>
-        <DemoOnly className="card-cta" label={`${company.name} site`}>
-          <Icon name="external-link" size={12} /> Site
-        </DemoOnly>
-        <DemoOnly className="card-cta" label={`Bookmark ${company.name}`}>
-          <Icon name="star" size={12} />
-        </DemoOnly>
+        {company.domain ? (
+          <a
+            className="card-cta"
+            href={`https://${company.domain}`}
+            rel="noreferrer"
+            target="_blank"
+          >
+            <Icon name="external-link" size={12} /> Site
+          </a>
+        ) : null}
+        <button
+          aria-label={`${watched ? 'Remove bookmark for' : 'Bookmark'} ${company.name}`}
+          aria-pressed={watched}
+          className="card-cta"
+          disabled={pending}
+          type="button"
+          onClick={onToggleWatch}
+        >
+          <Icon
+            name="star"
+            size={12}
+            {...(watched
+              ? {
+                  style: {
+                    color: 'var(--gold)',
+                    fontVariationSettings: '"FILL" 1, "wght" 500, "GRAD" 0, "opsz" 20',
+                  },
+                }
+              : {})}
+          />
+        </button>
       </div>
     </article>
   );

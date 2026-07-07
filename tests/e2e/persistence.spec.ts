@@ -13,12 +13,24 @@ test.describe('board persistence', () => {
   test.skip(!supabaseEnabled, 'supabase adapter not configured');
 
   test('manually created application survives localStorage wipe', async ({ page, request }) => {
+    const hydrated = page.waitForResponse(
+      (response) => response.url().endsWith('/api/apps') && response.request().method() === 'GET',
+      { timeout: 15_000 },
+    );
     await page.goto('/');
+    expect((await hydrated).ok()).toBe(true);
     await page.getByRole('button', { name: /^create$/i }).click();
     await page.locator('#na-company').fill('Persistence Test Co');
     await page.locator('#na-role').fill('E2E Engineer');
+    const persisted = page.waitForResponse(
+      (response) => response.url().endsWith('/api/apps') && response.request().method() === 'PUT',
+      { timeout: 15_000 },
+    );
     await page.getByRole('button', { name: /create application/i }).click();
     await expect(page.getByText('E2E Engineer').first()).toBeVisible();
+    const persistResponse = await persisted;
+    const persistBody = await persistResponse.text();
+    expect(persistResponse.ok(), persistBody).toBe(true);
 
     await expect
       .poll(async () => {

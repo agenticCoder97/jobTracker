@@ -14,6 +14,37 @@ Use this checklist before merging `Development` → `Production`.
 - [ ] No `.env` keys required for the local adapter; optional public logo lookup uses `NEXT_PUBLIC_LOGO_DEV_TOKEN` in Vercel when configured.
 - [ ] PR description includes a 1-line scope summary and the Vercel preview URL.
 
+## Research / live-data configuration (Jobs · Companies · Research)
+
+The live-data tabs (external job/company listings) require the Supabase adapter and a few
+server-only env vars. In `local` adapter mode these tabs fall back to seed data and none of
+this is needed.
+
+Env vars (set in `.env.local` and in the Vercel project settings for Preview + Production):
+
+- [ ] `NEXT_PUBLIC_PERSISTENCE_ADAPTER=supabase` — activates live data. Setting it back to
+      `local` is the kill switch; the read/write API routes return `501` under `local`.
+- [ ] `SUPABASE_SECRET_KEY` (service role) — already required by the board; reused server-side.
+- [ ] `CRON_SECRET` — gates `/api/cron/research` and the manual `/api/research/run`. Generate
+      with `openssl rand -hex 32`.
+- [ ] `ADZUNA_APP_ID` / `ADZUNA_APP_KEY` — **optional**. The pipeline runs on The Muse (no key)
+      alone until these are set; sign up free at <https://developer.adzuna.com/>. `ADZUNA_COUNTRY`
+      defaults to `us`.
+
+Database: migration `docs/backend/migrations/0003_research_single_user.sql` must be applied
+(adds `external_jobs`, `external_companies`, `watched_companies`, `dismissed_picks`,
+`api_call_log`, `cron_runs`). A `profiles` row for the owner user must exist (holds search
+preferences).
+
+Smoke test (adapter = `supabase`):
+
+- [ ] `curl -XPOST localhost:3000/api/research/run` → `{ ok: true, jobsUpserted: > 0 }`
+      (missing-key providers report errors and are skipped — that's expected).
+- [ ] `curl localhost:3000/api/jobs/listings` → non-empty `listings`.
+- [ ] `/jobs`, `/companies`, `/research` render live rows; Refresh, Bookmark, Dismiss, and
+      Tune-preferences actions persist across reload.
+- [ ] `curl localhost:3000/api/cron/research` → `401`; with `-H "authorization: Bearer $CRON_SECRET"` → `ok`.
+
 ## Merge
 
 - [ ] Use **squash merge** if Production protection requires linear history (default in this repo).

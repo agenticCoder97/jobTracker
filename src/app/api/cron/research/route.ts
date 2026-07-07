@@ -1,19 +1,18 @@
 /**
- * Research-refresh cron — TEMPLATE.
+ * Research-refresh cron.
  *
  * Schedule lives in `vercel.json`. The route is gated by `assertCronAuth`
- * so an unauthenticated visitor cannot kick a refresh manually.
- *
- * Phase 0 (this pass): the route compiles, authenticates, opens/closes a
- * `cron_runs` row, and returns a stub summary. The actual provider
- * fan-out + research_results writes are deferred to phase 2.
+ * so an unauthenticated visitor cannot kick a refresh manually. The actual
+ * provider fan-out + upserts live in `runResearchRefresh()` (shared with the
+ * manual `/api/research/run` trigger); this route only owns the `cron_runs`
+ * bookkeeping around that call.
  */
 
 import { NextResponse } from 'next/server';
 
 import { assertCronAuth, CronAuthError } from '@/app/api/cron/_auth';
-import { listJobProviders } from '@/lib/api/registry';
 import { getEventLogRepository } from '@/lib/repositories/server';
+import { runResearchRefresh, type ResearchRunSummary } from '@/lib/research/pipeline';
 import { getSupabaseAdminClient } from '@/lib/supabase/admin';
 
 export const runtime = 'nodejs';
@@ -49,13 +48,19 @@ export async function GET(request: Request) {
     });
   }
 
-  // TODO(phase 2): for each enabled research_subscription, fan out across
-  // listJobProviders(), normalise into external_jobs, score against profile,
-  // write research_results, log every call into api_call_log. Notifications
-  // for new high-match items go through the existing eventLog/notifications
-  // pipelines.
-  const providerCount = listJobProviders().length;
-  const itemsProcessed = 0;
+  let summary: ResearchRunSummary | undefined;
+  let runError: string | undefined;
+  try {
+    summary = await runResearchRefresh();
+  } catch (error) {
+    runError = error instanceof Error ? error.message : String(error);
+  }
+
+  const itemsProcessed = summary?.jobsUpserted ?? 0;
+  const failed = Boolean(runError) || (summary != null && summary.errors.length > 0 && summary.jobsUpserted === 0);
+  const status: 'ok' | 'error' = failed ? 'error' : 'ok';
+  const errorMessage =
+    runError ?? (failed ? summary?.errors.map((e) => `${e.providerId}: ${e.error}`).join('; ') : undefined);
 
   const finishedAt = new Date().toISOString();
   if (runId) {
@@ -64,9 +69,10 @@ export async function GET(request: Request) {
       await admin
         .from('cron_runs')
         .update({
-          status: 'ok',
+          status,
           finished_at: finishedAt,
           items_processed: itemsProcessed,
+          ...(errorMessage ? { error: errorMessage } : {}),
         })
         .eq('id', runId);
     } catch (error) {
@@ -79,13 +85,13 @@ export async function GET(request: Request) {
   }
 
   return NextResponse.json({
-    ok: true,
+    ok: !runError,
     job: 'research',
     startedAt,
     finishedAt,
-    providerCount,
     itemsProcessed,
-    note: 'template only — provider fan-out is not implemented yet',
+    summary,
+    ...(runError ? { error: runError } : {}),
   });
 }
 
