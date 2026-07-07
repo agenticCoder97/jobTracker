@@ -4,9 +4,11 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { seedAll } from '@/lib/data/seed';
 import { recordAudit } from '@/lib/store/audit';
+import { getPersistenceAdapter } from '@/lib/supabase/env';
 import type { CoverLetter, IsoDateTime, Profile, Resume, Uuid } from '@/lib/types';
 
 const seed = seedAll();
+const seeded = getPersistenceAdapter() === 'local';
 
 export type ProfileActivityKind =
   | 'about'
@@ -62,8 +64,8 @@ export const useProfileStore = create<ProfileState>()(
   persist(
     (set, get) => ({
       profile: seed.profile,
-      resumes: seed.resumes,
-      coverLetters: seed.coverLetters,
+      resumes: seeded ? seed.resumes : [],
+      coverLetters: seeded ? seed.coverLetters : [],
       activity: [],
       updateProfile: (patch) => {
         set((state) => ({
@@ -203,8 +205,8 @@ export const useProfileStore = create<ProfileState>()(
         const fresh = seedAll();
         set({
           profile: fresh.profile,
-          resumes: fresh.resumes,
-          coverLetters: fresh.coverLetters,
+          resumes: seeded ? fresh.resumes : [],
+          coverLetters: seeded ? fresh.coverLetters : [],
           activity: [],
         });
         recordAudit('demo', 'profile', 'reset');

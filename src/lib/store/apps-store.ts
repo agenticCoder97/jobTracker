@@ -3,9 +3,11 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { seedAll, type SortMode } from '@/lib/data/seed';
+import { emptyBoardState, type BoardState } from '@/lib/data/board-defaults';
 import { computeAts } from '@/lib/utils/ats';
 import { daysAgo } from '@/lib/utils/dates';
 import { slugifyCompanyId } from '@/lib/company-logos';
+import { getPersistenceAdapter } from '@/lib/supabase/env';
 import type {
   Activity,
   AppDocs,
@@ -22,7 +24,20 @@ import { DEMO_USER_ID } from '@/lib/types';
 import { useProfileStore } from '@/lib/store/profile-store';
 import { recordAudit } from '@/lib/store/audit';
 
-const seed = seedAll();
+const seeded = getPersistenceAdapter() === 'local';
+
+function freshBoard(): BoardState {
+  if (!seeded) return emptyBoardState();
+  const fresh = seedAll();
+  return {
+    applications: fresh.applications,
+    activity: fresh.activity,
+    appDocs: fresh.appDocs,
+    statusSortMode: fresh.statusSortMode,
+  };
+}
+
+const initialBoard = freshBoard();
 
 export type NewApplicationInput = {
   status: StatusId;
@@ -117,10 +132,10 @@ function syncReset(): void {
 export const useAppsStore = create<AppsState>()(
   persist(
     (set, get) => ({
-      applications: seed.applications,
-      activity: seed.activity,
-      appDocs: seed.appDocs,
-      statusSortMode: seed.statusSortMode,
+      applications: initialBoard.applications,
+      activity: initialBoard.activity,
+      appDocs: initialBoard.appDocs,
+      statusSortMode: initialBoard.statusSortMode,
       getByDisplayId: (displayId) =>
         get().applications.find((app) => app.displayId === displayId && !app.deletedAt),
       createCard: (input) => {
@@ -403,13 +418,7 @@ export const useAppsStore = create<AppsState>()(
         sync(id);
       },
       reset: () => {
-        const fresh = seedAll();
-        set({
-          applications: fresh.applications,
-          activity: fresh.activity,
-          appDocs: fresh.appDocs,
-          statusSortMode: fresh.statusSortMode,
-        });
+        set(freshBoard());
         recordAudit('demo', 'apps', 'reset');
         syncReset();
       },
