@@ -8,12 +8,12 @@ import { useNotificationsStore } from '@/lib/store/notifications-store';
 import { useProfileStore } from '@/lib/store/profile-store';
 import { useUiStore } from '@/lib/store/ui-store';
 
-export function useHydration(): boolean {
-  const [hydrated, setHydrated] = useState(false);
+let hydrationPromise: Promise<void> | null = null;
+let hydrationComplete = false;
 
-  useEffect(() => {
-    let cancelled = false;
-    void Promise.all([
+function startHydration(): Promise<void> {
+  if (!hydrationPromise) {
+    hydrationPromise = Promise.all([
       useAppsStore.persist.rehydrate(),
       useProfileStore.persist.rehydrate(),
       useNotificationsStore.persist.rehydrate(),
@@ -28,8 +28,24 @@ export function useHydration(): boolean {
         }
       })
       .finally(() => {
-        if (!cancelled) setHydrated(true);
+        hydrationComplete = true;
       });
+  }
+  return hydrationPromise;
+}
+
+export function useHydration(): boolean {
+  const [hydrated, setHydrated] = useState(hydrationComplete);
+
+  useEffect(() => {
+    if (hydrationComplete) {
+      setHydrated(true);
+      return;
+    }
+    let cancelled = false;
+    void startHydration().finally(() => {
+      if (!cancelled) setHydrated(true);
+    });
     return () => {
       cancelled = true;
     };
