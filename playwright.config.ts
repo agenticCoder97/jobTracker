@@ -21,34 +21,55 @@ const supabaseEnabled =
   process.env.NEXT_PUBLIC_PERSISTENCE_ADAPTER === 'supabase' &&
   Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL) &&
   Boolean(process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY);
+const supabaseOnly = process.env.NEXT_PUBLIC_PERSISTENCE_ADAPTER === 'supabase';
+
+const localWebServer = {
+  command: `NEXT_PUBLIC_PERSISTENCE_ADAPTER=local PORT=${localPort} corepack pnpm dev`,
+  url: `http://localhost:${localPort}`,
+  reuseExistingServer: !isCI,
+  timeout: 120_000,
+};
+
+const supabaseWebServer = {
+  command: `NEXT_PUBLIC_PERSISTENCE_ADAPTER=supabase PORT=${supabasePort} corepack pnpm dev`,
+  url: `http://localhost:${supabasePort}`,
+  reuseExistingServer: !isCI,
+  timeout: 120_000,
+};
 
 const webServer = [
+  ...(supabaseOnly ? [] : [localWebServer]),
+  ...(supabaseEnabled ? [supabaseWebServer] : []),
+];
+
+const localProject = {
+  name: 'chromium',
+  testIgnore: /(persistence|research-live)\.spec\.ts/,
+  use: { ...devices['Desktop Chrome'] },
+};
+
+const supabaseProject = {
+  name: 'chromium-supabase',
+  testMatch: /(persistence|research-live)\.spec\.ts/,
+  use: { ...devices['Desktop Chrome'], baseURL: `http://localhost:${supabasePort}` },
+};
+
+const projects = [
+  ...(supabaseOnly ? [] : [localProject]),
   {
-    command: `NEXT_PUBLIC_PERSISTENCE_ADAPTER=local PORT=${localPort} corepack pnpm dev`,
-    url: `http://localhost:${localPort}`,
-    reuseExistingServer: !isCI,
-    timeout: 120_000,
+    ...supabaseProject,
+    ...(supabaseEnabled ? {} : { testIgnore: /.*/ }),
   },
-  ...(supabaseEnabled
-    ? [
-        {
-          command: `NEXT_PUBLIC_PERSISTENCE_ADAPTER=supabase PORT=${supabasePort} corepack pnpm dev`,
-          url: `http://localhost:${supabasePort}`,
-          reuseExistingServer: !isCI,
-          timeout: 120_000,
-        },
-      ]
-    : []),
 ];
 
 export default defineConfig({
   testDir: './tests/e2e',
   timeout: 30_000,
   expect: { timeout: 5_000 },
-  fullyParallel: true,
+  fullyParallel: !supabaseOnly,
   forbidOnly: isCI,
   retries: isCI ? 2 : 0,
-  ...(isCI ? { workers: 2 } : {}),
+  ...(supabaseOnly ? { workers: 1 } : isCI ? { workers: 2 } : {}),
   reporter: isCI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL: `http://localhost:${localPort}`,
@@ -56,17 +77,6 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
-  projects: [
-    {
-      name: 'chromium',
-      testIgnore: /persistence\.spec\.ts/,
-      use: { ...devices['Desktop Chrome'] },
-    },
-    {
-      name: 'chromium-supabase',
-      testMatch: /persistence\.spec\.ts/,
-      use: { ...devices['Desktop Chrome'], baseURL: `http://localhost:${supabasePort}` },
-    },
-  ],
+  projects,
   webServer,
 });

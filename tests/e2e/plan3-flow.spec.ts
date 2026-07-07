@@ -10,7 +10,7 @@ test('research renders sections and adds a pick to wishlist', async ({ page }) =
   await expect(page.getByRole('heading', { name: 'Research' })).toBeVisible();
   await expect(page.getByText("Today's picks for you")).toBeVisible();
   await expect(page.getByText('LinkedIn signals')).toBeVisible();
-  await expect(page.getByText('Watched companies')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Watched companies' })).toBeVisible();
 
   await page
     .getByRole('button', { name: /Add to wishlist/i })
