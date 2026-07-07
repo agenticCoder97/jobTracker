@@ -36,4 +36,11 @@ test.describe('board persistence', () => {
     await expect(page.getByText('Persistence Test Co').first()).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText('E2E Engineer').first()).toBeVisible();
   });
+
+  test('supabase mode never shows seed demo cards after reload', async ({ page }) => {
+    await page.goto('/');
+    await page.evaluate(() => window.localStorage.clear());
+    await page.reload();
+    await expect(page.locator('.app-card__id', { hasText: 'JT-42' })).toHaveCount(0);
+  });
 });
