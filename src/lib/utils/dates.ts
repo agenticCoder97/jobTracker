@@ -18,7 +18,7 @@ export function daysFrom(date: IsoDate | IsoDateTime | Date, anchor: Date = TODA
 }
 
 export function fmtDate(date: IsoDate | IsoDateTime | null | undefined): string {
-  if (!date) return '-';
+  if (!date) return '—';
   return new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric',

@@ -9,6 +9,6 @@ test('board opens card detail tabs', async ({ page }) => {
   await expect(page.getByText('ATS match score')).toBeVisible();
   await page.getByRole('button', { name: /Activity/ }).click();
   await page.getByPlaceholder('Add a comment...').fill('Playwright smoke comment');
-  await page.getByRole('button', { name: 'Comment' }).click();
+  await page.getByRole('button', { name: 'Comment', exact: true }).click();
   await expect(page.getByText('Playwright smoke comment')).toBeVisible();
 });

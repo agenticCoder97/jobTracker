@@ -22,17 +22,30 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { NewApplicationDialog } from '@/components/jobtracker/NewApplicationDialog';
+import { DemoOnly } from '@/components/ui/DemoOnly';
+import { getCompanyLogoSources, resolveLogoCompany, slugifyCompanyId } from '@/lib/company-logos';
 import { COMPANIES, STATUSES, TEAM } from '@/lib/data/seed';
 import { resolveIcon } from '@/lib/icon-map';
 import { useAppsStore } from '@/lib/store/apps-store';
 import { useNotificationsStore } from '@/lib/store/notifications-store';
 import { useProfileStore } from '@/lib/store/profile-store';
-import { useUiStore, type FilterId } from '@/lib/store/ui-store';
+import { useHydration } from '@/lib/store/use-hydration';
+import { useUiStore, type BoardSortMode, type FilterId } from '@/lib/store/ui-store';
+import { companyNameOf } from '@/lib/utils/company-name';
 import { daysFrom, fmtDate } from '@/lib/utils/dates';
 import { gradeFor } from '@/lib/utils/ats';
 import { resolveOrder } from '@/lib/utils/sort-resolver';
-import type { Application, CompanyId, Priority, StatusId, TeamId, Uuid } from '@/lib/types';
+import type {
+  Application,
+  CompanyId,
+  Priority,
+  RemoteMode,
+  StatusId,
+  TeamId,
+  Uuid,
+} from '@/lib/types';
 
 type JobTrackerAppProps = {
   initialCardDisplayId?: string;
@@ -59,12 +72,15 @@ const tabs = [
 type DetailTab = (typeof tabs)[number]['id'];
 
 export function JobTrackerApp({ initialCardDisplayId }: JobTrackerAppProps) {
-  const hydrated = true;
+  const hydrated = useHydration();
   return (
     <div className="app-shell">
       <TopBar />
       <main className="board">{hydrated ? <BoardView /> : <BoardSkeleton />}</main>
-      {initialCardDisplayId ? <CardDetailDialog displayId={initialCardDisplayId} /> : null}
+      {hydrated && initialCardDisplayId ? (
+        <CardDetailDialog displayId={initialCardDisplayId} />
+      ) : null}
+      <NewApplicationDialog />
       <ToastHost />
     </div>
   );
@@ -83,12 +99,13 @@ export function PlaceholderApp({ title, description }: { title: string; descript
           </Link>
         </div>
       </main>
+      <NewApplicationDialog />
       <ToastHost />
     </div>
   );
 }
 
-function Icon({
+export function Icon({
   name,
   size = 16,
   className,
@@ -116,7 +133,7 @@ function Icon({
   );
 }
 
-function CompanyLogo({
+export function CompanyLogo({
   companyId,
   size = 32,
   radius = 6,
@@ -125,10 +142,45 @@ function CompanyLogo({
   size?: number;
   radius?: number;
 }) {
-  const company = COMPANIES[companyId];
-  if (!company) return null;
+  const company = resolveLogoCompany(companyId, COMPANIES[companyId]);
+  const logoSources = useMemo(() => getCompanyLogoSources(company, size), [company, size]);
+  const [sourceIndex, setSourceIndex] = useState(0);
+  const source = logoSources[sourceIndex];
+
+  useEffect(() => {
+    setSourceIndex(0);
+  }, [company.id, size]);
+
+  if (source) {
+    return (
+      <span
+        aria-label={`${company.name} logo`}
+        className="app-card__logo is-image-logo"
+        style={{
+          width: size,
+          height: size,
+          borderRadius: radius,
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element -- Logo fallbacks include external SVG sources and need native onError source cycling. */}
+        <img
+          alt=""
+          aria-hidden="true"
+          decoding="async"
+          height={size}
+          loading="lazy"
+          referrerPolicy={source.referrerPolicy}
+          src={source.src}
+          width={size}
+          onError={() => setSourceIndex((current) => current + 1)}
+        />
+      </span>
+    );
+  }
+
   return (
     <span
+      aria-label={`${company.name} logo`}
       className="app-card__logo"
       style={{
         width: size,
@@ -162,9 +214,8 @@ function Avatar({ who, size = 22 }: { who: TeamId; size?: number }) {
   );
 }
 
-function TopBar() {
+export function TopBar() {
   const pathname = usePathname();
-  const router = useRouter();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
   const unreadCount = useNotificationsStore(
@@ -173,12 +224,11 @@ function TopBar() {
         (notification) => !state.readAt[notification.id] && !state.dismissedAt[notification.id],
       ).length,
   );
-  const createCard = useAppsStore((state) => state.createCard);
+  const openNewApp = useUiStore((state) => state.openNewApp);
   const pushToast = useUiStore((state) => state.pushToast);
 
   function createApplication() {
-    const app = createCard('wishlist');
-    router.push(`/card/${app.displayId}`);
+    openNewApp('wishlist');
   }
 
   function demo(label: string) {
@@ -400,15 +450,21 @@ function NotificationsPopover() {
 
 function BoardView() {
   const applications = useAppsStore((state) => state.applications);
-  const statusSortMode = useAppsStore((state) => state.statusSortMode);
   const moveStatus = useAppsStore((state) => state.moveStatus);
   const reorderInStatus = useAppsStore((state) => state.reorderInStatus);
-  const createCard = useAppsStore((state) => state.createCard);
   const boardFilter = useUiStore((state) => state.boardFilter);
   const setBoardFilter = useUiStore((state) => state.setBoardFilter);
+  const boardCompanyFilter = useUiStore((state) => state.boardCompanyFilter);
+  const setBoardCompanyFilter = useUiStore((state) => state.setBoardCompanyFilter);
+  const boardLocationFilter = useUiStore((state) => state.boardLocationFilter);
+  const setBoardLocationFilter = useUiStore((state) => state.setBoardLocationFilter);
+  const boardTagFilter = useUiStore((state) => state.boardTagFilter);
+  const setBoardTagFilter = useUiStore((state) => state.setBoardTagFilter);
+  const boardSortMode = useUiStore((state) => state.boardSortMode);
+  const setBoardSortMode = useUiStore((state) => state.setBoardSortMode);
   const viewMode = useUiStore((state) => state.viewMode);
   const setViewMode = useUiStore((state) => state.setViewMode);
-  const router = useRouter();
+  const openNewApp = useUiStore((state) => state.openNewApp);
   const [draggingId, setDraggingId] = useState<Uuid | null>(null);
   const [dragOverStatus, setDragOverStatus] = useState<StatusId | null>(null);
   const sensors = useSensors(
@@ -422,8 +478,31 @@ function BoardView() {
 
   const counts = useMemo(() => computeFilterCounts(applications), [applications]);
   const filteredApplications = useMemo(
-    () => filterApplications(applications, boardFilter),
-    [applications, boardFilter],
+    () =>
+      filterApplications(
+        applications.filter((app) => !app.archivedAt && !app.deletedAt),
+        boardFilter,
+        {
+          company: boardCompanyFilter,
+          location: boardLocationFilter,
+          tag: boardTagFilter,
+        },
+      ),
+    [applications, boardCompanyFilter, boardFilter, boardLocationFilter, boardTagFilter],
+  );
+  const companyOptions = useMemo(() => {
+    const companies = Array.from(new Set(applications.map((application) => application.company)));
+    return companies.sort((a, b) =>
+      (COMPANIES[a]?.name ?? a).localeCompare(COMPANIES[b]?.name ?? b),
+    );
+  }, [applications]);
+  const locationOptions = useMemo(
+    () => Array.from(new Set(applications.map((application) => application.location))).sort(),
+    [applications],
+  );
+  const tagOptions = useMemo(
+    () => Array.from(new Set(applications.flatMap((application) => application.tags))).sort(),
+    [applications],
   );
   const byStatus = useMemo(() => {
     const groups: Record<StatusId, Application[]> = {
@@ -436,14 +515,13 @@ function BoardView() {
     };
     for (const application of filteredApplications) groups[application.status].push(application);
     for (const status of STATUSES) {
-      groups[status.id] = resolveOrder(groups[status.id], statusSortMode[status.id]);
+      groups[status.id] = resolveOrder(groups[status.id], boardSortMode);
     }
     return groups;
-  }, [filteredApplications, statusSortMode]);
+  }, [boardSortMode, filteredApplications]);
 
   function addCard(status: StatusId) {
-    const app = createCard(status);
-    router.push(`/card/${app.displayId}`);
+    openNewApp(status);
   }
 
   function statusForDragTarget(id: string, overStatus?: StatusId): StatusId | null {
@@ -477,9 +555,11 @@ function BoardView() {
         const oldIndex = currentIds.indexOf(activeId);
         const newIndex = currentIds.indexOf(overId ?? activeId);
         if (oldIndex >= 0 && newIndex >= 0 && oldIndex !== newIndex) {
+          setBoardSortMode('manual');
           reorderInStatus(targetStatus, arrayMove(currentIds, oldIndex, newIndex));
         }
       } else {
+        setBoardSortMode('manual');
         moveStatus(activeId, targetStatus);
       }
     }
@@ -514,19 +594,64 @@ function BoardView() {
             </button>
           ))}
           <span className="filter-divider" />
-          <button className="filter-group">
-            <Icon name="building-2" size={12} /> Company <Icon name="chevron-down" size={12} />
-          </button>
-          <button className="filter-group">
-            <Icon name="map-pin" size={12} /> Location <Icon name="chevron-down" size={12} />
-          </button>
-          <button className="filter-group">
-            <Icon name="tag" size={12} /> Tags <Icon name="chevron-down" size={12} />
-          </button>
-          <button className="filter-group">
-            <Icon name="arrow-down-up" size={12} /> Sort: Last activity{' '}
-            <Icon name="chevron-down" size={12} />
-          </button>
+          <label className={`filter-group ${boardCompanyFilter !== 'all' ? 'is-set' : ''}`}>
+            <Icon name="building-2" size={12} />
+            <select
+              aria-label="Filter by company"
+              value={boardCompanyFilter}
+              onChange={(event) => setBoardCompanyFilter(event.target.value)}
+            >
+              <option value="all">Company: All</option>
+              {companyOptions.map((companyId) => (
+                <option key={companyId} value={companyId}>
+                  {COMPANIES[companyId]?.name ?? companyId}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={`filter-group ${boardLocationFilter !== 'all' ? 'is-set' : ''}`}>
+            <Icon name="map-pin" size={12} />
+            <select
+              aria-label="Filter by location"
+              value={boardLocationFilter}
+              onChange={(event) => setBoardLocationFilter(event.target.value)}
+            >
+              <option value="all">Location: All</option>
+              {locationOptions.map((location) => (
+                <option key={location} value={location}>
+                  {location}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={`filter-group ${boardTagFilter !== 'all' ? 'is-set' : ''}`}>
+            <Icon name="tag" size={12} />
+            <select
+              aria-label="Filter by tag"
+              value={boardTagFilter}
+              onChange={(event) => setBoardTagFilter(event.target.value)}
+            >
+              <option value="all">Tags: All</option>
+              {tagOptions.map((tag) => (
+                <option key={tag} value={tag}>
+                  {tag}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="filter-group is-set">
+            <Icon name="arrow-down-up" size={12} />
+            <select
+              aria-label="Sort board"
+              value={boardSortMode}
+              onChange={(event) => setBoardSortMode(event.target.value as BoardSortMode)}
+            >
+              <option value="lastActivity">Sort: Last activity</option>
+              <option value="priority">Sort: Priority</option>
+              <option value="dateApplied">Sort: Applied date</option>
+              <option value="manual">Sort: Manual</option>
+            </select>
+          </label>
           <span className="view-toggle">
             {(['board', 'list', 'timeline'] as const).map((mode) => (
               <button
@@ -597,14 +722,29 @@ function computeFilterCounts(applications: Application[]): Record<FilterId, numb
   };
 }
 
-function filterApplications(applications: Application[], filter: FilterId): Application[] {
-  if (filter === 'high') return applications.filter((app) => app.priority === 'high');
-  if (filter === 'thisweek')
-    return applications.filter((app) => app.nextActionDue && daysFrom(app.nextActionDue) > -7);
-  if (filter === 'remote') return applications.filter((app) => app.remote === 'Remote');
-  if (filter === 'referral')
-    return applications.filter((app) => Boolean(app.referral) || app.tags.includes('Referral'));
-  return applications;
+export function filterApplications(
+  applications: Application[],
+  filter: FilterId,
+  fields: { company: string; location: string; tag: string } = {
+    company: 'all',
+    location: 'all',
+    tag: 'all',
+  },
+): Application[] {
+  return applications.filter((app) => {
+    if (filter === 'high' && app.priority !== 'high') return false;
+    if (filter === 'thisweek' && !(app.nextActionDue && daysFrom(app.nextActionDue) > -7)) {
+      return false;
+    }
+    if (filter === 'remote' && app.remote !== 'Remote') return false;
+    if (filter === 'referral' && !(Boolean(app.referral) || app.tags.includes('Referral'))) {
+      return false;
+    }
+    if (fields.company !== 'all' && app.company !== fields.company) return false;
+    if (fields.location !== 'all' && app.location !== fields.location) return false;
+    if (fields.tag !== 'all' && !app.tags.includes(fields.tag)) return false;
+    return true;
+  });
 }
 
 function Column({
@@ -636,12 +776,16 @@ function Column({
         <span className="column__dot" style={{ background: status.dot }} />
         <span className="column__title">{status.title}</span>
         <span className="column__count">{items.length}</span>
-        <button
-          className="icon-btn"
-          style={{ width: 22, height: 22, borderRadius: 'var(--radius-sm)' }}
-        >
-          <Icon name="more-horizontal" size={14} />
-        </button>
+        <DemoOnly label={`${status.title} column actions`} asChild>
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label={`${status.title} column actions`}
+            style={{ width: 22, height: 22, borderRadius: 'var(--radius-sm)' }}
+          >
+            <Icon name="more-horizontal" size={14} />
+          </button>
+        </DemoOnly>
       </div>
       <div className="column__list">
         <SortableContext
@@ -702,7 +846,7 @@ function ApplicationCard({
               href={`/company/${application.company}`}
               onClick={(event) => event.stopPropagation()}
             >
-              {COMPANIES[application.company]?.name ?? application.company}
+              {companyNameOf(application)}
             </Link>
             <span className="sep" />
             <span>{application.remote}</span>
@@ -721,9 +865,6 @@ function ApplicationCard({
             {tag}
           </span>
         ))}
-      </div>
-      <div className="app-card__bar">
-        <div className="app-card__bar-fill" style={{ width: `${application.progress}%` }} />
       </div>
       <div className="app-card__bottom">
         <span className="app-card__id">{application.displayId}</span>
@@ -769,16 +910,54 @@ export function CardDetailDialog({ displayId }: { displayId: string }) {
   const router = useRouter();
   const application = useAppsStore((state) => state.getByDisplayId(displayId));
   const updateApp = useAppsStore((state) => state.updateApp);
+  const archiveApp = useAppsStore((state) => state.archiveApp);
+  const deleteApp = useAppsStore((state) => state.deleteApp);
+  const pushToast = useUiStore((state) => state.pushToast);
   const [tab, setTab] = useState<DetailTab>('overview');
+  const hadInAppHistoryRef = useRef(false);
+  useEffect(() => {
+    hadInAppHistoryRef.current =
+      typeof window !== 'undefined' &&
+      typeof window.history !== 'undefined' &&
+      window.history.length > 1;
+  }, []);
+
+  function close() {
+    if (hadInAppHistoryRef.current) {
+      router.back();
+    } else {
+      router.replace('/');
+    }
+  }
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key === 'Escape') close();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!application) {
     return (
-      <div className="modal-backdrop">
-        <div className="modal" role="dialog" aria-modal="true">
+      <div className="modal-backdrop" role="presentation" onMouseDown={close}>
+        <div
+          className="modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="card-detail-not-found-title"
+          onMouseDown={(event) => event.stopPropagation()}
+        >
           <div className="modal__main">
             <div className="empty-state">
-              <h1 style={{ marginTop: 0, color: 'var(--white)' }}>Card not found</h1>
-              <button className="astral-gold-btn" onClick={() => router.push('/')}>
+              <h1 id="card-detail-not-found-title" style={{ marginTop: 0, color: 'var(--white)' }}>
+                Card not found
+              </h1>
+              <p style={{ color: 'var(--muted)' }}>
+                The application <strong>{displayId}</strong> doesn&apos;t exist or was removed.
+              </p>
+              <button className="astral-gold-btn" onClick={close}>
                 Close
               </button>
             </div>
@@ -788,54 +967,69 @@ export function CardDetailDialog({ displayId }: { displayId: string }) {
     );
   }
 
-  function close() {
-    router.push('/');
-  }
-
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={close}>
       <div
         className="modal"
         role="dialog"
         aria-modal="true"
+        aria-labelledby="card-detail-title"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="modal__head">
           <div className="modal__crumbs">
-            Board <Icon name="chevron-right" size={14} />{' '}
-            <span>{COMPANIES[application.company]?.name}</span>{' '}
+            Board <Icon name="chevron-right" size={14} /> <span>{companyNameOf(application)}</span>{' '}
             <span className="id">{application.displayId}</span>
           </div>
           <span className="grow" />
           {application.status === 'wishlist' ? (
-            <button
-              className="astral-gold-btn"
-              onClick={() =>
-                updateApp(
-                  application.id,
-                  {
-                    status: 'applied',
-                    applied: new Date().toISOString().slice(0, 10),
-                    progress: 20,
-                  },
-                  'Application submitted',
-                )
-              }
-            >
+            <Link className="astral-gold-btn" href={`/apply/${application.displayId}`}>
               <Icon name="rocket" size={14} /> Apply now
-            </button>
+            </Link>
           ) : null}
-          {['eye', 'star', 'share-2', 'archive', 'more-horizontal'].map((icon) => (
-            <button
-              key={icon}
-              className="icon-btn"
-              onClick={() =>
-                useUiStore.getState().pushToast({ kind: 'info', message: 'Demo only control.' })
-              }
-            >
-              <Icon name={icon} />
-            </button>
+          {(
+            [
+              { icon: 'eye', label: 'Watch' },
+              { icon: 'star', label: 'Star' },
+              { icon: 'share-2', label: 'Share' },
+            ] as const
+          ).map(({ icon, label }) => (
+            <DemoOnly key={icon} label={label} asChild>
+              <button type="button" className="icon-btn" aria-label={label}>
+                <Icon name={icon} />
+              </button>
+            </DemoOnly>
           ))}
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label={application.archivedAt ? 'Unarchive' : 'Archive'}
+            onClick={() => {
+              archiveApp(application.id);
+              pushToast({
+                message: application.archivedAt ? 'Card unarchived' : 'Card archived',
+              });
+            }}
+          >
+            <Icon name="archive" />
+          </button>
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label="Delete card"
+            onClick={() => {
+              if (
+                !window.confirm(`Delete ${application.displayId}? This removes it from your board.`)
+              ) {
+                return;
+              }
+              deleteApp(application.id);
+              pushToast({ message: 'Card deleted' });
+              close();
+            }}
+          >
+            <Icon name="trash-2" />
+          </button>
           <button className="icon-btn" aria-label="Close" onClick={close}>
             <Icon name="x" />
           </button>
@@ -843,9 +1037,13 @@ export function CardDetailDialog({ displayId }: { displayId: string }) {
         <div className="modal__body">
           <div className="modal__main">
             <h1
+              id="card-detail-title"
               className="modal__title"
               contentEditable
               suppressContentEditableWarning
+              role="textbox"
+              aria-multiline="false"
+              aria-label="Role title"
               onBlur={(event) =>
                 updateApp(
                   application.id,
@@ -875,50 +1073,96 @@ export function CardDetailDialog({ displayId }: { displayId: string }) {
 }
 
 function CompanyLine({ application }: { application: Application }) {
+  const updateApp = useAppsStore((state) => state.updateApp);
   return (
     <div className="modal__company-line">
       <CompanyLogo companyId={application.company} size={24} radius={5} />
-      <Link href={`/company/${application.company}`}>
-        {COMPANIES[application.company]?.name ?? application.company}
-      </Link>
-      <span>{application.location}</span>
-      <span>·</span>
-      <button
-        style={{ border: 0, background: 'transparent', color: 'var(--gold)', cursor: 'pointer' }}
-        onClick={() =>
-          useUiStore
-            .getState()
-            .pushToast({ kind: 'info', message: 'Original posting is demo data.' })
+      <Link href={`/company/${application.company}`}>{companyNameOf(application)}</Link>
+      <span
+        contentEditable
+        suppressContentEditableWarning
+        role="textbox"
+        aria-label="Location"
+        onBlur={(event) =>
+          updateApp(
+            application.id,
+            { location: event.currentTarget.textContent?.trim() || application.location },
+            'Location edited',
+          )
         }
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            event.currentTarget.blur();
+          }
+        }}
       >
-        View original posting
-      </button>
+        {application.location}
+      </span>
+      <span>·</span>
+      {application.postingUrl ? (
+        <a
+          href={application.postingUrl}
+          rel="noreferrer noopener"
+          target="_blank"
+          style={{ color: 'var(--gold)' }}
+        >
+          View original posting <Icon name="external-link" size={11} />
+        </a>
+      ) : (
+        <button
+          style={{ border: 0, background: 'transparent', color: 'var(--muted)', cursor: 'pointer' }}
+          type="button"
+          onClick={() => {
+            const url = window.prompt('Posting URL (https://...)');
+            if (url?.trim())
+              updateApp(application.id, { postingUrl: url.trim() }, 'Posting URL added');
+          }}
+        >
+          Add posting link
+        </button>
+      )}
     </div>
   );
 }
 
 function MetaRow({ application }: { application: Application }) {
+  const moveStatus = useAppsStore((state) => state.moveStatus);
+  const updateApp = useAppsStore((state) => state.updateApp);
   const status = STATUSES.find((item) => item.id === application.status);
   const priority = priorityMeta(application.priority);
+  const nextPriority: Record<Priority, Priority> = { high: 'med', med: 'low', low: 'high' };
   return (
     <div className="row-center" style={{ gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
-      <button className="status-pill" style={{ color: status?.color ?? 'var(--gold)' }}>
-        <span
-          style={{
-            width: 8,
-            height: 8,
-            borderRadius: '50%',
-            background: status?.dot ?? 'var(--gold)',
-          }}
-        />
-        {status?.title ?? application.status}
-      </button>
+      <select
+        aria-label="Change status"
+        className="status-pill"
+        style={{ color: status?.color ?? 'var(--gold)' }}
+        value={application.status}
+        onChange={(event) => moveStatus(application.id, event.target.value as StatusId)}
+      >
+        {STATUSES.map((item) => (
+          <option key={item.id} value={item.id}>
+            {item.title}
+          </option>
+        ))}
+      </select>
       <button
         className="priority-pill"
+        type="button"
+        aria-label={`Priority: ${priority.label}. Click to change.`}
         style={{ color: application.priority === 'high' ? 'var(--error)' : 'var(--warning)' }}
+        onClick={() =>
+          updateApp(
+            application.id,
+            { priority: nextPriority[application.priority] },
+            `Priority set to ${nextPriority[application.priority]}`,
+          )
+        }
       >
         <Icon name={priority.icon} size={12} /> {priority.label}
       </button>
+      {application.archivedAt ? <span className="chip">Archived</span> : null}
       {application.tags.map((tag) => (
         <span key={tag} className="chip is-tag">
           {tag}
@@ -980,10 +1224,65 @@ function TabContent({ application, tab }: { application: Application; tab: Detai
 }
 
 function OverviewTab({ application }: { application: Application }) {
+  const updateApp = useAppsStore((state) => state.updateApp);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(application.description ?? '');
   return (
     <>
       <Section title="About the role">
-        <p>{application.description ?? 'No role description has been captured yet.'}</p>
+        {editing ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <textarea
+              aria-label="Role description"
+              rows={5}
+              style={{
+                width: '100%',
+                border: '1px solid var(--border)',
+                borderRadius: 8,
+                background: 'transparent',
+                color: 'var(--white)',
+                font: 'inherit',
+                padding: 8,
+              }}
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+            />
+            <div className="row-center" style={{ gap: 8 }}>
+              <button
+                className="astral-gold-btn"
+                type="button"
+                onClick={() => {
+                  updateApp(application.id, { description: draft.trim() }, 'Description edited');
+                  setEditing(false);
+                }}
+              >
+                Save
+              </button>
+              <button className="card-cta" type="button" onClick={() => setEditing(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p
+            role="button"
+            tabIndex={0}
+            style={{ cursor: 'text' }}
+            title="Click to edit"
+            onClick={() => {
+              setDraft(application.description ?? '');
+              setEditing(true);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                setDraft(application.description ?? '');
+                setEditing(true);
+              }
+            }}
+          >
+            {application.description ?? 'No role description yet - click to add one.'}
+          </p>
+        )}
       </Section>
       {application.requirements?.length ? (
         <Section title="What they want">
@@ -1124,16 +1423,18 @@ function ActivityTab({ application }: { application: Application }) {
         />
         <div className="row-center" style={{ justifyContent: 'space-between' }}>
           <div className="row-center" style={{ gap: 4 }}>
-            {['paperclip', 'at-sign', 'smile'].map((icon) => (
-              <button
-                key={icon}
-                className="icon-btn"
-                onClick={() =>
-                  useUiStore.getState().pushToast({ kind: 'info', message: 'Demo only control.' })
-                }
-              >
-                <Icon name={icon} />
-              </button>
+            {(
+              [
+                { icon: 'paperclip', label: 'Attach file to comment' },
+                { icon: 'at-sign', label: 'Mention teammate' },
+                { icon: 'smile', label: 'Insert emoji' },
+              ] as const
+            ).map(({ icon, label }) => (
+              <DemoOnly key={icon} label={label} asChild>
+                <button type="button" className="icon-btn" aria-label={label}>
+                  <Icon name={icon} />
+                </button>
+              </DemoOnly>
             ))}
           </div>
           <button className="astral-gold-btn" disabled={!text.trim()} onClick={submit}>
@@ -1239,6 +1540,7 @@ function HistoryTab({ application }: { application: Application }) {
 }
 
 function SidePanel({ application }: { application: Application }) {
+  const updateApp = useAppsStore((state) => state.updateApp);
   const salaryWidth = Math.min(
     100,
     Math.max(8, ((application.salaryMax - application.salaryMin) / 300) * 100),
@@ -1256,17 +1558,75 @@ function SidePanel({ application }: { application: Application }) {
         <SideRow label="Owner" value={<Avatar who="me" />} />
       </SideGroup>
       <SideGroup title="Role">
-        <SideRow
+        <EditableSideRow
           label="Company"
-          value={COMPANIES[application.company]?.name ?? application.company}
+          value={companyNameOf(application)}
+          onCommit={(name) =>
+            updateApp(
+              application.id,
+              { companyName: name, company: slugifyCompanyId(name) },
+              'Company edited',
+            )
+          }
         />
-        <SideRow label="Level" value={application.level} />
-        <SideRow label="Team" value={application.team} />
-        <SideRow label="Mode" value={application.remote} />
+        <EditableSideRow
+          label="Level"
+          value={application.level}
+          onCommit={(level) => updateApp(application.id, { level }, 'Level edited')}
+        />
+        <EditableSideRow
+          label="Team"
+          value={application.team}
+          onCommit={(team) => updateApp(application.id, { team }, 'Team edited')}
+        />
+        <div className="side__row">
+          <span>Mode</span>
+          <select
+            aria-label="Work mode"
+            className="side__value"
+            style={{
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              background: 'transparent',
+              color: 'var(--white)',
+            }}
+            value={application.remote}
+            onChange={(event) =>
+              updateApp(
+                application.id,
+                { remote: event.target.value as RemoteMode },
+                'Work mode edited',
+              )
+            }
+          >
+            <option>Remote</option>
+            <option>Hybrid</option>
+            <option>Onsite</option>
+          </select>
+        </div>
       </SideGroup>
       <SideGroup title="Compensation">
-        <SideRow label="Salary" value={`$${application.salaryMin}-${application.salaryMax}K`} />
-        <SideRow label="Equity" value={application.equity ?? 'Not listed'} />
+        <EditableSideRow
+          label="Salary min ($K)"
+          type="number"
+          value={String(application.salaryMin)}
+          onCommit={(value) =>
+            updateApp(application.id, { salaryMin: Number(value) || 0 }, 'Salary edited')
+          }
+        />
+        <EditableSideRow
+          label="Salary max ($K)"
+          type="number"
+          value={String(application.salaryMax)}
+          onCommit={(value) =>
+            updateApp(application.id, { salaryMax: Number(value) || 0 }, 'Salary edited')
+          }
+        />
+        <EditableSideRow
+          label="Equity"
+          value={application.equity ?? 'Not listed'}
+          onCommit={(equity) => updateApp(application.id, { equity }, 'Equity edited')}
+        />
         <div className="salary-bar" style={{ height: 8, marginTop: 12 }}>
           <div className="salary-bar__fill" style={{ width: `${salaryWidth}%` }} />
         </div>
@@ -1318,6 +1678,77 @@ function SideRow({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
+function EditableSideRow({
+  label,
+  value,
+  onCommit,
+  type = 'text',
+}: {
+  label: string;
+  value: string;
+  onCommit: (next: string) => void;
+  type?: 'text' | 'number';
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  if (!editing) {
+    return (
+      <div className="side__row">
+        <span>{label}</span>
+        <button
+          className="side__value side__value--editable"
+          style={{
+            border: 0,
+            background: 'transparent',
+            color: 'inherit',
+            cursor: 'pointer',
+            font: 'inherit',
+            textAlign: 'right',
+          }}
+          title={`Edit ${label.toLowerCase()}`}
+          type="button"
+          onClick={() => {
+            setDraft(value);
+            setEditing(true);
+          }}
+        >
+          {value}
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="side__row">
+      <span>{label}</span>
+      <input
+        autoFocus
+        aria-label={label}
+        style={{
+          width: 120,
+          border: '1px solid var(--border)',
+          borderRadius: 6,
+          background: 'transparent',
+          color: 'var(--white)',
+          font: 'inherit',
+          padding: '2px 6px',
+          textAlign: 'right',
+        }}
+        type={type}
+        value={draft}
+        onBlur={() => {
+          setEditing(false);
+          if (draft.trim() && draft !== value) onCommit(draft.trim());
+        }}
+        onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') event.currentTarget.blur();
+          if (event.key === 'Escape') setEditing(false);
+        }}
+      />
+    </div>
+  );
+}
+
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="modal__section">
@@ -1327,7 +1758,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function ToastHost() {
+export function ToastHost() {
   const toasts = useUiStore((state) => state.toasts);
   return (
     <div className="toast-host">

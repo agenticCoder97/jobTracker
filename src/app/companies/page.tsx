@@ -1,10 +1,10 @@
-import { PlaceholderApp } from '@/components/jobtracker/JobTrackerApp';
+import { Suspense } from 'react';
+import { CompaniesView } from '@/components/companies/CompaniesView';
 
 export default function CompaniesPage() {
   return (
-    <PlaceholderApp
-      title="Companies ships in Plan 2"
-      description="Plan 2 implements the Companies grid, company detail modal, open roles, pipeline context, and demo-data labeling."
-    />
+    <Suspense fallback={null}>
+      <CompaniesView />
+    </Suspense>
   );
 }

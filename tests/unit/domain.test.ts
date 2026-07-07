@@ -24,6 +24,7 @@ describe('helpers', () => {
 
   test('resolves icons and ATS grades', () => {
     expect(resolveIcon('layout-dashboard')).toBe('space_dashboard');
+    expect(resolveIcon('playlist-add')).toBe('playlist_add');
     expect(resolveIcon('rocket_launch')).toBe('rocket_launch');
     expect(gradeFor(85).label).toBe('Excellent');
     expect(gradeFor(70).label).toBe('Strong');

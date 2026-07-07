@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { seedAll } from '@/lib/data/seed';
+import { recordAudit } from '@/lib/store/audit';
 import type { IsoDateTime, Notification, Uuid } from '@/lib/types';
 
 const seed = seedAll();
@@ -31,6 +32,7 @@ export const useNotificationsStore = create<NotificationsState>()(
       dismissedAt: {},
       markRead: (id) => {
         set((state) => ({ readAt: { ...state.readAt, [id]: new Date().toISOString() } }));
+        recordAudit('notification', id, 'read');
       },
       markAllRead: () => {
         set((state) => ({
@@ -47,20 +49,25 @@ export const useNotificationsStore = create<NotificationsState>()(
       },
       dismiss: (id) => {
         set((state) => ({ dismissedAt: { ...state.dismissedAt, [id]: new Date().toISOString() } }));
+        recordAudit('notification', id, 'dismissed');
       },
       reset: () => {
         const fresh = seedAll();
         set({ notifications: fresh.notifications, readAt: {}, dismissedAt: {} });
+        recordAudit('demo', 'notifications', 'reset');
       },
     }),
     {
       name: 'jobtracker:notifications:v1',
+      version: 1,
+      skipHydration: true,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         notifications: state.notifications,
         readAt: state.readAt,
         dismissedAt: state.dismissedAt,
       }),
+      migrate: (persistedState) => persistedState as NotificationsState,
     },
   ),
 );

@@ -5,10 +5,37 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { seedAll, seedUuid, type SortMode } from '@/lib/data/seed';
 import { computeAts } from '@/lib/utils/ats';
 import { daysAgo } from '@/lib/utils/dates';
-import type { Activity, AppDocs, Application, HistoryEvent, StatusId, Uuid } from '@/lib/types';
+import { slugifyCompanyId } from '@/lib/company-logos';
+import type {
+  Activity,
+  AppDocs,
+  Application,
+  DailyPick,
+  HistoryEvent,
+  JobListing,
+  Priority,
+  RemoteMode,
+  StatusId,
+  Uuid,
+} from '@/lib/types';
 import { useProfileStore } from '@/lib/store/profile-store';
+import { recordAudit } from '@/lib/store/audit';
 
 const seed = seedAll();
+
+export type NewApplicationInput = {
+  status: StatusId;
+  companyName: string;
+  role: string;
+  location?: string;
+  remote?: RemoteMode;
+  salaryMin?: number;
+  salaryMax?: number;
+  priority?: Priority;
+  tags?: string[];
+  postingUrl?: string;
+  description?: string;
+};
 
 type AppsState = {
   applications: Application[];
@@ -16,13 +43,16 @@ type AppsState = {
   appDocs: Record<Uuid, AppDocs>;
   statusSortMode: Record<StatusId, SortMode>;
   getByDisplayId: (displayId: string) => Application | undefined;
-  createCard: (status: StatusId) => Application;
+  createCard: (input: NewApplicationInput) => Application;
   updateApp: (id: Uuid, patch: Partial<Application>, text?: string) => void;
   moveStatus: (id: Uuid, status: StatusId) => void;
   reorderInStatus: (status: StatusId, orderedIds: Uuid[]) => void;
   setStatusSortMode: (status: StatusId, mode: SortMode) => void;
   addComment: (applicationId: Uuid, text: string) => void;
+  addToWishlist: (listing: JobListing | DailyPick, source?: 'Jobs' | 'Research') => Application;
   applyCard: (id: Uuid, docs: { resumeId: Uuid; coverLetterId: Uuid | null }) => void;
+  archiveApp: (id: Uuid) => void;
+  deleteApp: (id: Uuid) => void;
   reset: () => void;
 };
 
@@ -45,6 +75,44 @@ function bump(app: Application): Application {
   return { ...app, updatedAt: now, lastActivity: now };
 }
 
+function nextDisplayId(applications: Application[]): string {
+  const numbers = applications.map((app) => Number(app.displayId.replace('JT-', '')));
+  const nextNumber = (numbers.length > 0 ? Math.max(...numbers) : 0) + 1;
+  return `JT-${nextNumber}`;
+}
+
+function modeFromLocation(location: string): RemoteMode {
+  if (location.toLowerCase().includes('remote')) return 'Remote';
+  if (location.toLowerCase().includes('onsite')) return 'Onsite';
+  return 'Hybrid';
+}
+
+function salaryMinFromPick(pick: DailyPick): number {
+  const first = pick.salary.match(/\$([0-9]+)/)?.[1];
+  return first ? Number(first) : 180;
+}
+
+function salaryMaxFromPick(pick: DailyPick): number {
+  const values = Array.from(pick.salary.matchAll(/([0-9]+)K/g)).map((match) => Number(match[1]));
+  return values.at(-1) ?? salaryMinFromPick(pick) + 60;
+}
+
+function listingId(input: JobListing | DailyPick): Uuid {
+  return input.id;
+}
+
+function sync(appId: Uuid): void {
+  void import('@/lib/store/apps-sync').then((mod) => mod.queuePersist(appId));
+}
+
+function syncMany(appIds: Uuid[]): void {
+  void import('@/lib/store/apps-sync').then((mod) => mod.persistMany(appIds));
+}
+
+function syncReset(): void {
+  void import('@/lib/store/apps-sync').then((mod) => mod.resetServer());
+}
+
 export const useAppsStore = create<AppsState>()(
   persist(
     (set, get) => ({
@@ -52,40 +120,41 @@ export const useAppsStore = create<AppsState>()(
       activity: seed.activity,
       appDocs: seed.appDocs,
       statusSortMode: seed.statusSortMode,
-      getByDisplayId: (displayId) => get().applications.find((app) => app.displayId === displayId),
-      createCard: (status) => {
-        const nextNumber =
-          Math.max(...get().applications.map((app) => Number(app.displayId.replace('JT-', '')))) +
-          1;
-        const displayId = `JT-${nextNumber}`;
+      getByDisplayId: (displayId) =>
+        get().applications.find((app) => app.displayId === displayId && !app.deletedAt),
+      createCard: (input) => {
+        const displayId = nextDisplayId(get().applications);
+        const now = new Date().toISOString();
         const app: Application = {
           id: seedUuid(displayId),
           ownerUserId: seed.applications[0]?.ownerUserId ?? '00000000-0000-0000-0000-000000000001',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          createdAt: now,
+          updatedAt: now,
           deletedAt: null,
           displayId,
-          status,
-          company: 'anthropic',
-          role: 'New application',
-          location: 'Remote (US)',
-          remote: 'Remote',
-          salaryMin: 180,
-          salaryMax: 240,
+          status: input.status,
+          company: slugifyCompanyId(input.companyName),
+          companyName: input.companyName.trim(),
+          role: input.role.trim(),
+          location: input.location?.trim() || 'Remote',
+          remote: input.remote ?? 'Remote',
+          salaryMin: input.salaryMin ?? 0,
+          salaryMax: input.salaryMax ?? 0,
           level: 'Senior',
           team: 'Product',
           posted: daysAgo(0),
-          applied: null,
-          lastActivity: new Date().toISOString(),
-          priority: 'med',
+          applied: input.status === 'wishlist' ? null : daysAgo(0),
+          lastActivity: now,
+          priority: input.priority ?? 'med',
           source: 'Manual entry',
-          progress: status === 'wishlist' ? 5 : 20,
-          tags: ['Draft'],
-          description: 'Add notes about this role.',
+          progress: input.status === 'wishlist' ? 5 : 20,
+          tags: input.tags ?? [],
           sourceListingId: null,
-          sortIndex: get().applications.filter((item) => item.status === status).length,
+          sortIndex: get().applications.filter((item) => item.status === input.status).length,
           archivedAt: null,
         };
+        if (input.postingUrl?.trim()) app.postingUrl = input.postingUrl.trim();
+        if (input.description?.trim()) app.description = input.description.trim();
         set((state) => ({
           applications: [app, ...state.applications],
           activity: {
@@ -96,6 +165,8 @@ export const useAppsStore = create<AppsState>()(
             },
           },
         }));
+        recordAudit('application', app.id, 'created', { source: 'manual', status: input.status });
+        sync(app.id);
         return app;
       },
       updateApp: (id, patch, text = 'Application updated') => {
@@ -111,6 +182,8 @@ export const useAppsStore = create<AppsState>()(
             },
           },
         }));
+        recordAudit('application', id, 'fields_edited', { fields: Object.keys(patch) });
+        sync(id);
       },
       moveStatus: (id, status) => {
         set((state) => ({
@@ -136,6 +209,8 @@ export const useAppsStore = create<AppsState>()(
           },
           statusSortMode: { ...state.statusSortMode, [status]: 'manual' },
         }));
+        recordAudit('application', id, 'status_changed', { to: status });
+        sync(id);
       },
       reorderInStatus: (status, orderedIds) => {
         const indexById = new Map(orderedIds.map((id, index) => [id, index]));
@@ -147,6 +222,8 @@ export const useAppsStore = create<AppsState>()(
           ),
           statusSortMode: { ...state.statusSortMode, [status]: 'manual' },
         }));
+        recordAudit('application', status, 'reordered', { count: orderedIds.length });
+        syncMany(orderedIds);
       },
       setStatusSortMode: (status, mode) => {
         set((state) => ({ statusSortMode: { ...state.statusSortMode, [status]: mode } }));
@@ -178,9 +255,76 @@ export const useAppsStore = create<AppsState>()(
             app.id === applicationId ? bump(app) : app,
           ),
         }));
+        recordAudit('application', applicationId, 'comment_added');
+        sync(applicationId);
+      },
+      addToWishlist: (input, source = 'Jobs') => {
+        const sourceId = listingId(input);
+        const existing = get().applications.find((app) => app.sourceListingId === sourceId);
+        if (existing) return existing;
+
+        const displayId = nextDisplayId(get().applications);
+        const now = new Date().toISOString();
+        const salaryMin = 'salaryMin' in input ? input.salaryMin : salaryMinFromPick(input);
+        const salaryMax = 'salaryMax' in input ? input.salaryMax : salaryMaxFromPick(input);
+        const equity =
+          'salary' in input && input.salary.includes('+')
+            ? input.salary.split('+').at(1)?.trim()
+            : undefined;
+        const app: Application = {
+          id: seedUuid(displayId),
+          ownerUserId: seed.applications[0]?.ownerUserId ?? '00000000-0000-0000-0000-000000000001',
+          createdAt: now,
+          updatedAt: now,
+          deletedAt: null,
+          displayId,
+          status: 'wishlist',
+          company: input.company,
+          role: input.role,
+          location: input.location,
+          remote: 'remote' in input ? input.remote : modeFromLocation(input.location),
+          salaryMin,
+          salaryMax,
+          level: input.role.toLowerCase().includes('staff') ? 'Staff' : 'Senior',
+          team: 'Discovery',
+          posted:
+            'posted' in input && /^\d{4}-\d{2}-\d{2}$/.test(input.posted)
+              ? input.posted
+              : daysAgo(0),
+          applied: null,
+          lastActivity: now,
+          priority: input.match >= 85 ? 'high' : 'med',
+          source: `${source} discovery`,
+          progress: 5,
+          tags: 'tags' in input ? input.tags : input.why.slice(0, 2),
+          description: `Discovered from ${source}. Match score ${input.match}%.`,
+          sourceListingId: sourceId,
+          sortIndex: get().applications.filter((item) => item.status === 'wishlist').length,
+          archivedAt: null,
+        };
+        if (equity) app.equity = equity;
+        set((state) => ({
+          applications: [app, ...state.applications],
+          activity: {
+            ...state.activity,
+            [app.id]: {
+              ...emptyActivity(),
+              history: [historyEvent('created', `Added to wishlist from ${source}`)],
+            },
+          },
+        }));
+        recordAudit('application', app.id, 'wishlist_added', { source, sourceId });
+        sync(app.id);
+        return app;
       },
       applyCard: (id, docs) => {
         const resume = useProfileStore.getState().resumes.find((item) => item.id === docs.resumeId);
+        const targetApp = get().applications.find((app) => app.id === id);
+        const required =
+          targetApp?.requirements && targetApp.requirements.length > 0
+            ? targetApp.requirements
+            : (targetApp?.tags ?? []);
+        const nice = targetApp?.tags?.filter((tag) => !required.includes(tag)) ?? [];
         set((state) => ({
           applications: state.applications.map((app) =>
             app.id === id
@@ -201,8 +345,8 @@ export const useAppsStore = create<AppsState>()(
                   coverLetterId: docs.coverLetterId,
                   ats: computeAts({
                     resumeKeywords: resume.keywords,
-                    required: ['TypeScript', 'React', 'Distributed systems'],
-                    nice: ['Observability', 'Kafka'],
+                    required,
+                    nice,
                   }),
                 },
               }
@@ -221,6 +365,41 @@ export const useAppsStore = create<AppsState>()(
         useProfileStore.getState().incrementResumeUse(docs.resumeId);
         if (docs.coverLetterId)
           useProfileStore.getState().incrementCoverLetterUse(docs.coverLetterId);
+        recordAudit('application', id, 'application_submitted', {
+          resumeId: docs.resumeId,
+          coverLetterId: docs.coverLetterId,
+        });
+        sync(id);
+      },
+      archiveApp: (id) => {
+        const isArchived = Boolean(get().applications.find((app) => app.id === id)?.archivedAt);
+        const archivedAt = isArchived ? null : new Date().toISOString();
+        set((state) => ({
+          applications: state.applications.map((app) =>
+            app.id === id ? bump({ ...app, archivedAt }) : app,
+          ),
+          activity: {
+            ...state.activity,
+            [id]: {
+              ...(state.activity[id] ?? emptyActivity()),
+              history: [
+                historyEvent('field', archivedAt ? 'Card archived' : 'Card unarchived'),
+                ...(state.activity[id]?.history ?? []),
+              ],
+            },
+          },
+        }));
+        recordAudit('application', id, archivedAt ? 'archived' : 'unarchived');
+        sync(id);
+      },
+      deleteApp: (id) => {
+        set((state) => ({
+          applications: state.applications.map((app) =>
+            app.id === id ? { ...app, deletedAt: new Date().toISOString() } : app,
+          ),
+        }));
+        recordAudit('application', id, 'deleted');
+        sync(id);
       },
       reset: () => {
         const fresh = seedAll();
@@ -230,10 +409,14 @@ export const useAppsStore = create<AppsState>()(
           appDocs: fresh.appDocs,
           statusSortMode: fresh.statusSortMode,
         });
+        recordAudit('demo', 'apps', 'reset');
+        syncReset();
       },
     }),
     {
       name: 'jobtracker:apps:v1',
+      version: 1,
+      skipHydration: true,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         applications: state.applications,
@@ -241,6 +424,7 @@ export const useAppsStore = create<AppsState>()(
         appDocs: state.appDocs,
         statusSortMode: state.statusSortMode,
       }),
+      migrate: (persistedState) => persistedState as AppsState,
     },
   ),
 );

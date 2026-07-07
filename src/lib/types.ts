@@ -28,9 +28,121 @@ export type Company = {
   name: string;
   bg: string;
   initial: string;
+  domain?: string;
+  logoUrl?: string;
   ring?: boolean;
   dark?: boolean;
 };
+
+export type CompanyDetail = {
+  id: CompanyId;
+  industry: string;
+  hq: string;
+  size: string;
+  founded: number;
+  rating: number;
+  ceoApproval: number;
+  recommendFriend: number;
+  openRoles: number;
+  interviewDifficulty: number;
+  medianComp: number;
+  fundingStage: string;
+  tags: string[];
+};
+
+export type JobListing = {
+  id: Uuid;
+  displayId: string;
+  company: CompanyId;
+  role: string;
+  location: string;
+  remote: RemoteMode;
+  salaryMin: number;
+  salaryMax: number;
+  posted: IsoDate;
+  match: number;
+  tags: string[];
+  saved: boolean;
+};
+
+export type DailyPick = {
+  id: Uuid;
+  company: CompanyId;
+  role: string;
+  location: string;
+  salary: string;
+  match: number;
+  why: string[];
+  posted: string;
+  applicants: string;
+};
+
+export type ProfileLink = { label: string; url: string; icon: string };
+export type SearchPrefs = {
+  roles: string[];
+  remote: string[];
+  minComp: number;
+  industries: string[];
+  avoid: string[];
+  notice: string;
+};
+export type Experience = {
+  id: string;
+  company: CompanyId;
+  role: string;
+  from: string;
+  to: string;
+  dur: string;
+  location: string;
+  bullets: string[];
+};
+export type Education = {
+  id: string;
+  school: string;
+  degree: string;
+  from: string;
+  to: string;
+  detail: string;
+};
+export type SkillLevel = 1 | 2 | 3 | 4 | 5;
+export type Skill = { name: string; level: SkillLevel; years: number; endorsements: number };
+export type LanguageLevel = 'Native' | 'Conversational' | 'Beginner';
+export type Language = { name: string; level: LanguageLevel };
+export type Cert = { name: string; issuer: string; when: string };
+export type ProfileCompletenessSection = { id: string; label: string; done: boolean };
+export type Profile = Audited & {
+  name: string;
+  handle: string;
+  email: string;
+  phone: string;
+  location: string;
+  pronouns: string;
+  headline: string;
+  about: string;
+  links: ProfileLink[];
+  openToWork: boolean;
+  preferences: SearchPrefs;
+  experience: Experience[];
+  education: Education[];
+  skills: Skill[];
+  languages: Language[];
+  certifications: Cert[];
+  achievements: string[];
+  completeness: { sections: ProfileCompletenessSection[] };
+};
+
+export type MarketSalary = { lvl: string; comp: number; hi: boolean };
+export type MarketSkill = { name: string; weight: number; delta: string; down?: boolean };
+export type LinkedInPerson = {
+  id: string;
+  name: string;
+  title: string;
+  mutual?: string;
+  color: string;
+};
+export type LinkedInInMail = LinkedInPerson & { preview: string; when: string };
+export type LinkedInEvent = { id: string; month: string; day: string; title: string; meta: string };
+export type CompanyWatch = { company: CompanyId; name: string; meta: string; count: number };
 
 export type TeamMember = {
   id: TeamId;
@@ -45,6 +157,8 @@ export type Application = Audited & {
   displayId: string;
   status: StatusId;
   company: CompanyId;
+  /** Display name for free-form companies; seeded companies resolve via COMPANIES. */
+  companyName?: string;
   role: string;
   location: string;
   remote: RemoteMode;
@@ -58,6 +172,7 @@ export type Application = Audited & {
   lastActivity: IsoDateTime;
   priority: Priority;
   source: string;
+  postingUrl?: string;
   referral?: string;
   progress: number;
   tags: string[];
