@@ -4,7 +4,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { CompanyLogo, Icon } from '@/components/jobtracker/JobTrackerApp';
 import { DemoOnly } from '@/components/ui/DemoOnly';
-import { COMPANIES, COMPANY_DETAILS, JOB_LISTINGS, STATUSES } from '@/lib/data/seed';
+import { COMPANY_DETAILS, STATUSES } from '@/lib/data/seed';
+import { useCompanyWatch } from '@/lib/client/use-company-watch';
+import { useLiveCompanies } from '@/lib/client/use-live-companies';
+import { useLiveListings } from '@/lib/client/use-live-listings';
 import { useAppsStore } from '@/lib/store/apps-store';
 import { useUiStore } from '@/lib/store/ui-store';
 
@@ -13,26 +16,40 @@ export function CompanyDetailDialog({ companyId }: { companyId: string }) {
   const applications = useAppsStore((state) => state.applications);
   const addToWishlist = useAppsStore((state) => state.addToWishlist);
   const pushToast = useUiStore((state) => state.pushToast);
-  const detail = COMPANY_DETAILS[companyId];
-  const company = COMPANIES[companyId];
+  const { companies, loading: companiesLoading } = useLiveCompanies();
+  const { listings } = useLiveListings();
+  const company = companies.find((item) => item.id === companyId);
+  const detail = COMPANY_DETAILS[companyId] ?? null;
+  const { watched, pending, toggle } = useCompanyWatch(companyId, company?.watched ?? false);
 
-  if (!detail || !company) {
+  if (!company) {
     return (
       <div className="modal-backdrop">
         <div className="modal compact-modal">
           <div className="modal__main">
-            <h1 className="modal__title">Company not found</h1>
-            <Link className="astral-gold-btn" href="/companies">
-              Back to companies
-            </Link>
+            <h1 className="modal__title">
+              {companiesLoading ? 'Loading company...' : 'Company not found'}
+            </h1>
+            {companiesLoading ? null : (
+              <Link className="astral-gold-btn" href="/companies">
+                Back to companies
+              </Link>
+            )}
           </div>
         </div>
       </div>
     );
   }
 
-  const roles = JOB_LISTINGS.filter((listing) => listing.company === companyId);
+  const roles = listings.filter((listing) => listing.company === companyId);
   const pipeline = applications.filter((app) => app.company === companyId);
+
+  async function onToggleWatch() {
+    const ok = await toggle();
+    if (!ok) {
+      pushToast({ kind: 'error', message: `Could not update watchlist for ${company!.name}` });
+    }
+  }
 
   return (
     <div className="modal-backdrop" role="presentation">
@@ -44,12 +61,38 @@ export function CompanyDetailDialog({ companyId }: { companyId: string }) {
             <span>{company.name}</span>
           </div>
           <span className="grow" />
-          <DemoOnly className="icon-btn" label={`Star ${company.name}`}>
-            <Icon name="star" size={15} />
-          </DemoOnly>
-          <DemoOnly className="icon-btn" label={`Open ${company.name}`}>
-            <Icon name="external-link" size={15} />
-          </DemoOnly>
+          <button
+            aria-label={`${watched ? 'Remove bookmark for' : 'Star'} ${company.name}`}
+            aria-pressed={watched}
+            className="icon-btn"
+            disabled={pending}
+            type="button"
+            onClick={onToggleWatch}
+          >
+            <Icon
+              name="star"
+              size={15}
+              {...(watched
+                ? {
+                    style: {
+                      color: 'var(--gold)',
+                      fontVariationSettings: '"FILL" 1, "wght" 500, "GRAD" 0, "opsz" 24',
+                    },
+                  }
+                : {})}
+            />
+          </button>
+          {company.domain ? (
+            <a
+              aria-label={`Open ${company.name} site`}
+              className="icon-btn"
+              href={`https://${company.domain}`}
+              rel="noreferrer"
+              target="_blank"
+            >
+              <Icon name="external-link" size={15} />
+            </a>
+          ) : null}
           <button
             aria-label="Close company detail"
             className="icon-btn"
@@ -66,14 +109,14 @@ export function CompanyDetailDialog({ companyId }: { companyId: string }) {
               <div>
                 <h1 className="modal__title">{company.name}</h1>
                 <div className="modal__company-line">
-                  <span>{detail.industry}</span>
-                  <span>{detail.hq}</span>
-                  <span>{detail.size} employees</span>
-                  <span>Founded {detail.founded}</span>
-                  <b>{detail.fundingStage}</b>
+                  <span>{detail?.industry ?? '—'}</span>
+                  <span>{detail?.hq ?? '—'}</span>
+                  <span>{detail ? `${detail.size} employees` : '—'}</span>
+                  <span>{detail ? `Founded ${detail.founded}` : '—'}</span>
+                  <b>{detail?.fundingStage ?? '—'}</b>
                 </div>
                 <div className="app-card__chips">
-                  {detail.tags.map((tag) => (
+                  {(detail?.tags ?? []).map((tag) => (
                     <span key={tag} className="chip is-tag">
                       {tag}
                     </span>
@@ -85,14 +128,26 @@ export function CompanyDetailDialog({ companyId }: { companyId: string }) {
               </DemoOnly>
             </div>
 
-            <div className="kpi-grid" data-demo-data="true">
-              <Kpi title="Glassdoor rating" value={`${detail.rating}`} meta="Demo data" />
-              <Kpi title="CEO approval" value={`${detail.ceoApproval}%`} meta="Demo data" />
-              <Kpi title="Median comp" value={`$${detail.medianComp}K`} meta="Demo data" />
+            <div className="kpi-grid" {...(detail ? { 'data-demo-data': 'true' } : {})}>
               <Kpi
+                meta={detail ? 'Demo data' : 'No data yet'}
+                title="Glassdoor rating"
+                value={detail ? `${detail.rating}` : '—'}
+              />
+              <Kpi
+                meta={detail ? 'Demo data' : 'No data yet'}
+                title="CEO approval"
+                value={detail ? `${detail.ceoApproval}%` : '—'}
+              />
+              <Kpi
+                meta={detail ? 'Demo data' : 'No data yet'}
+                title="Median comp"
+                value={detail ? `$${detail.medianComp}K` : '—'}
+              />
+              <Kpi
+                meta={detail ? 'Demo data' : 'No data yet'}
                 title="Interview difficulty"
-                value={`${detail.interviewDifficulty}/5`}
-                meta="Demo data"
+                value={detail ? `${detail.interviewDifficulty}/5` : '—'}
               />
             </div>
 

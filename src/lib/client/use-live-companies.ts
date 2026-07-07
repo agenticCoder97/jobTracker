@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { COMPANIES } from '@/lib/data/seed';
 import type { Company } from '@/lib/types';
 
@@ -18,16 +18,20 @@ export function useLiveCompanies(): {
   companies: LiveCompany[];
   loading: boolean;
   error: string | null;
+  refetch: () => void;
 } {
   const [companies, setCompanies] = useState<LiveCompany[]>(
     isSupabase ? [] : FALLBACK_COMPANIES,
   );
   const [loading, setLoading] = useState(isSupabase);
   const [error, setError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     if (!isSupabase) return;
     let active = true;
+    setLoading(true);
+    setError(null);
     (async () => {
       try {
         const res = await fetch('/api/companies');
@@ -43,7 +47,12 @@ export function useLiveCompanies(): {
     return () => {
       active = false;
     };
+  }, [reloadToken]);
+
+  const refetch = useCallback(() => {
+    if (!isSupabase) return;
+    setReloadToken((token) => token + 1);
   }, []);
 
-  return { companies, loading, error };
+  return { companies, loading, error, refetch };
 }

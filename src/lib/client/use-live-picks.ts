@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { DAILY_PICKS } from '@/lib/data/seed';
 import type { DailyPick } from '@/lib/types';
 
@@ -11,6 +11,7 @@ export function useLivePicks(): {
   spotlight: DailyPick | null;
   loading: boolean;
   error: string | null;
+  refetch: () => void;
 } {
   const [picks, setPicks] = useState<DailyPick[]>(isSupabase ? [] : DAILY_PICKS);
   const [spotlight, setSpotlight] = useState<DailyPick | null>(
@@ -18,10 +19,13 @@ export function useLivePicks(): {
   );
   const [loading, setLoading] = useState(isSupabase);
   const [error, setError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     if (!isSupabase) return;
     let active = true;
+    setLoading(true);
+    setError(null);
     (async () => {
       try {
         const res = await fetch('/api/research/picks');
@@ -40,7 +44,12 @@ export function useLivePicks(): {
     return () => {
       active = false;
     };
+  }, [reloadToken]);
+
+  const refetch = useCallback(() => {
+    if (!isSupabase) return;
+    setReloadToken((token) => token + 1);
   }, []);
 
-  return { picks, spotlight, loading, error };
+  return { picks, spotlight, loading, error, refetch };
 }
