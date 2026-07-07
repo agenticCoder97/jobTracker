@@ -1619,21 +1619,99 @@ function LinkDocumentPicker({
 
 function LinkedTab({ application }: { application: Application }) {
   const activity = useAppsStore((state) => state.activity[application.id]);
+  const addLink = useAppsStore((state) => state.addLink);
+  const removeLink = useAppsStore((state) => state.removeLink);
+  const pushToast = useUiStore((state) => state.pushToast);
+  const [title, setTitle] = useState('');
+  const [url, setUrl] = useState('');
   const links = activity?.links ?? [];
+
+  function submit(event: React.FormEvent) {
+    event.preventDefault();
+    const trimmedTitle = title.trim();
+    const trimmedUrl = url.trim();
+    if (!trimmedTitle || !/^https?:\/\/\S+$/.test(trimmedUrl)) {
+      pushToast({ kind: 'error', message: 'Enter a title and a valid http(s) URL.' });
+      return;
+    }
+    addLink(application.id, { type: 'link', title: trimmedTitle, meta: trimmedUrl });
+    setTitle('');
+    setUrl('');
+  }
+
   return (
-    <div className="linked-list">
-      {links.length ? (
-        links.map((link) => (
-          <div key={link.id} className="linked-row">
-            <span className="chip is-tag">{link.type}</span>{' '}
-            <strong style={{ color: 'var(--white)' }}>{link.title}</strong>
-            <div style={{ color: 'var(--muted)', marginTop: 4 }}>{link.meta}</div>
+    <>
+      <form className="row-center" style={{ gap: 8, marginBottom: 12 }} onSubmit={submit}>
+        <input
+          aria-label="Link title"
+          placeholder="Title (e.g. Take-home exercise)"
+          style={{
+            flex: 1,
+            background: 'transparent',
+            border: '1px solid var(--border)',
+            borderRadius: 8,
+            color: 'var(--white)',
+            font: 'inherit',
+            padding: '8px 10px',
+          }}
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+        />
+        <input
+          aria-label="Link URL"
+          placeholder="https://..."
+          style={{
+            flex: 1,
+            background: 'transparent',
+            border: '1px solid var(--border)',
+            borderRadius: 8,
+            color: 'var(--white)',
+            font: 'inherit',
+            padding: '8px 10px',
+          }}
+          value={url}
+          onChange={(event) => setUrl(event.target.value)}
+        />
+        <button className="astral-gold-btn" type="submit">
+          <Icon name="add_link" size={14} /> Add link
+        </button>
+      </form>
+      <div className="linked-list">
+        {links.length ? (
+          links.map((link) => (
+            <div key={link.id} className="linked-row">
+              <span className="chip is-tag">{link.type}</span>{' '}
+              {/^https?:\/\//.test(link.meta) ? (
+                <a
+                  href={link.meta}
+                  rel="noreferrer noopener"
+                  style={{ color: 'var(--white)', fontWeight: 600 }}
+                  target="_blank"
+                >
+                  {link.title} <Icon name="open_in_new" size={11} />
+                </a>
+              ) : (
+                <strong style={{ color: 'var(--white)' }}>{link.title}</strong>
+              )}
+              <div style={{ color: 'var(--muted)', marginTop: 4 }}>{link.meta}</div>
+              <button
+                aria-label={`Remove ${link.title}`}
+                className="card-cta"
+                style={{ marginTop: 6 }}
+                type="button"
+                onClick={() => removeLink(application.id, link.id)}
+              >
+                Remove
+              </button>
+            </div>
+          ))
+        ) : (
+          <div className="empty-state">
+            No linked items yet - add the posting, take-home, or docs.
           </div>
-        ))
-      ) : (
-        <div className="empty-state">No linked items yet.</div>
-      )}
-    </div>
+        )}
+      </div>
+    </>
   );
 }
 
