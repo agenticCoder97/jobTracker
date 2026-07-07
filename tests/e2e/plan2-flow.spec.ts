@@ -50,7 +50,7 @@ test('apply flow submits a wishlist card with selected documents', async ({ page
   await page.getByRole('button', { name: /Submit application/i }).click();
 
   await expect(page).toHaveURL(/\/card\/JT-/);
-  await expect(page.getByRole('button', { name: 'Applied', exact: true })).toBeVisible();
+  await expect(page.getByLabel('Change status')).toHaveValue('applied');
   await page.getByRole('button', { name: /Match/ }).click();
   await expect(page.getByText('Resume - Frontend / Product Engineering')).toBeVisible();
 });

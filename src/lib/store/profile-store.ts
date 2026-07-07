@@ -4,9 +4,11 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { seedAll } from '@/lib/data/seed';
 import { recordAudit } from '@/lib/store/audit';
+import { getPersistenceAdapter } from '@/lib/supabase/env';
 import type { CoverLetter, IsoDateTime, Profile, Resume, Uuid } from '@/lib/types';
 
 const seed = seedAll();
+const seeded = getPersistenceAdapter() === 'local';
 
 export type ProfileActivityKind =
   | 'about'
@@ -58,12 +60,20 @@ function entry(kind: ProfileActivityKind, text: string): ProfileActivityEntry {
   return { id: crypto.randomUUID(), kind, text, when: new Date().toISOString() };
 }
 
+function syncDocs(): void {
+  void import('@/lib/store/docs-sync').then((mod) => mod.queuePersistDocuments());
+}
+
+function syncDocDelete(type: 'resume' | 'cover-letter', id: string): void {
+  void import('@/lib/store/docs-sync').then((mod) => mod.deleteDocumentOnServer(type, id));
+}
+
 export const useProfileStore = create<ProfileState>()(
   persist(
     (set, get) => ({
       profile: seed.profile,
-      resumes: seed.resumes,
-      coverLetters: seed.coverLetters,
+      resumes: seeded ? seed.resumes : [],
+      coverLetters: seeded ? seed.coverLetters : [],
       activity: [],
       updateProfile: (patch) => {
         set((state) => ({
@@ -91,6 +101,7 @@ export const useProfileStore = create<ProfileState>()(
           })),
           activity: [entry('resume.default', 'Default resume changed'), ...state.activity],
         }));
+        syncDocs();
       },
       setDefaultCoverLetter: (id) => {
         if (!get().coverLetters.some((cl) => cl.id === id)) return;
@@ -102,6 +113,7 @@ export const useProfileStore = create<ProfileState>()(
           })),
           activity: [entry('cover.default', 'Default cover letter changed'), ...state.activity],
         }));
+        syncDocs();
       },
       incrementResumeUse: (id) => {
         set((state) => ({
@@ -111,6 +123,7 @@ export const useProfileStore = create<ProfileState>()(
               : resume,
           ),
         }));
+        syncDocs();
       },
       incrementCoverLetterUse: (id) => {
         set((state) => ({
@@ -124,6 +137,7 @@ export const useProfileStore = create<ProfileState>()(
               : coverLetter,
           ),
         }));
+        syncDocs();
       },
       addResume: (input) => {
         const now = new Date().toISOString();
@@ -140,6 +154,7 @@ export const useProfileStore = create<ProfileState>()(
           resumes: [resume, ...state.resumes],
           activity: [entry('resume.add', `Resume added: ${resume.name}`), ...state.activity],
         }));
+        syncDocs();
         return resume;
       },
       removeResume: (id) => {
@@ -149,6 +164,7 @@ export const useProfileStore = create<ProfileState>()(
           resumes: state.resumes.filter((resume) => resume.id !== id),
           activity: [entry('resume.remove', `Resume removed: ${target.name}`), ...state.activity],
         }));
+        syncDocDelete('resume', id);
       },
       editResume: (id, patch) => {
         set((state) => ({
@@ -159,6 +175,7 @@ export const useProfileStore = create<ProfileState>()(
           ),
           activity: [entry('resume.edit', 'Resume edited'), ...state.activity],
         }));
+        syncDocs();
       },
       addCoverLetter: (input) => {
         const now = new Date().toISOString();
@@ -178,6 +195,7 @@ export const useProfileStore = create<ProfileState>()(
             ...state.activity,
           ],
         }));
+        syncDocs();
         return coverLetter;
       },
       removeCoverLetter: (id) => {
@@ -190,6 +208,7 @@ export const useProfileStore = create<ProfileState>()(
             ...state.activity,
           ],
         }));
+        syncDocDelete('cover-letter', id);
       },
       editCoverLetter: (id, patch) => {
         set((state) => ({
@@ -198,13 +217,14 @@ export const useProfileStore = create<ProfileState>()(
           ),
           activity: [entry('cover.edit', 'Cover letter edited'), ...state.activity],
         }));
+        syncDocs();
       },
       reset: () => {
         const fresh = seedAll();
         set({
           profile: fresh.profile,
-          resumes: fresh.resumes,
-          coverLetters: fresh.coverLetters,
+          resumes: seeded ? fresh.resumes : [],
+          coverLetters: seeded ? fresh.coverLetters : [],
           activity: [],
         });
         recordAudit('demo', 'profile', 'reset');

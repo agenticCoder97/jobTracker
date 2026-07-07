@@ -27,6 +27,8 @@ import { NewApplicationDialog } from '@/components/jobtracker/NewApplicationDial
 import { DemoOnly } from '@/components/ui/DemoOnly';
 import { getCompanyLogoSources, resolveLogoCompany, slugifyCompanyId } from '@/lib/company-logos';
 import { COMPANIES, STATUSES, TEAM } from '@/lib/data/seed';
+import { deleteStoredFile, openStoredFile, storeFile } from '@/lib/files/client';
+import { fileKindOf } from '@/lib/files/kind';
 import { resolveIcon } from '@/lib/icon-map';
 import { useAppsStore } from '@/lib/store/apps-store';
 import { useNotificationsStore } from '@/lib/store/notifications-store';
@@ -39,6 +41,7 @@ import { gradeFor } from '@/lib/utils/ats';
 import { resolveOrder } from '@/lib/utils/sort-resolver';
 import type {
   Application,
+  Attachment,
   CompanyId,
   Priority,
   RemoteMode,
@@ -906,6 +909,14 @@ function priorityMeta(priority: Priority): { label: string; icon: string; classN
   return { label: 'Low', icon: 'arrow-down', className: 'is-priority-low' };
 }
 
+function attachmentIcon(kind: Attachment['kind']): string {
+  if (kind === 'zip') return 'folder_zip';
+  if (kind === 'xls') return 'table';
+  if (kind === 'img') return 'image';
+  if (kind === 'ics') return 'event';
+  return 'description';
+}
+
 export function CardDetailDialog({ displayId }: { displayId: string }) {
   const router = useRouter();
   const application = useAppsStore((state) => state.getByDisplayId(displayId));
@@ -1461,53 +1472,307 @@ function ActivityTab({ application }: { application: Application }) {
 
 function AttachmentsTab({ application }: { application: Application }) {
   const activity = useAppsStore((state) => state.activity[application.id]);
+  const addAttachment = useAppsStore((state) => state.addAttachment);
+  const removeAttachment = useAppsStore((state) => state.removeAttachment);
+  const pushToast = useUiStore((state) => state.pushToast);
+  const [busy, setBusy] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const attachments = activity?.attachments ?? [];
+
+  async function handleFiles(files: FileList | File[]) {
+    setBusy(true);
+    try {
+      for (const file of Array.from(files)) {
+        const stored = await storeFile(file, 'attachment', application.id);
+        addAttachment(application.id, { ...stored, source: 'upload' });
+        pushToast({ message: `${file.name} attached` });
+      }
+    } catch (error) {
+      pushToast({
+        kind: 'error',
+        message: error instanceof Error ? error.message : 'Upload failed',
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function remove(attachment: Attachment) {
+    removeAttachment(application.id, attachment.id);
+    if (attachment.source === 'upload' || attachment.source === undefined) {
+      void deleteStoredFile(attachment);
+    }
+    pushToast({
+      message:
+        attachment.source === 'resume' || attachment.source === 'cover-letter'
+          ? 'Document unlinked'
+          : 'Attachment removed',
+    });
+  }
+
   return (
-    <div className="attach-grid">
-      {attachments.length ? (
-        attachments.map((attachment) => (
-          <div key={attachment.id} className="attach-card">
-            <Icon
-              name={
-                attachment.kind === 'zip'
-                  ? 'file-archive'
-                  : attachment.kind === 'xls'
-                    ? 'file-spreadsheet'
-                    : attachment.kind === 'img'
-                      ? 'image'
-                      : 'file'
-              }
-            />{' '}
-            <strong style={{ color: 'var(--white)' }}>{attachment.name}</strong>
-            <div style={{ color: 'var(--muted)', marginTop: 4 }}>
-              {attachment.size} · {fmtDate(attachment.when)}
+    <>
+      <div className="row-center" style={{ gap: 8, marginBottom: 12 }}>
+        <input
+          ref={inputRef}
+          hidden
+          multiple
+          aria-label="Upload attachment"
+          type="file"
+          onChange={(event) => {
+            if (event.target.files?.length) void handleFiles(event.target.files);
+            event.target.value = '';
+          }}
+        />
+        <button
+          className="astral-gold-btn"
+          disabled={busy}
+          type="button"
+          onClick={() => inputRef.current?.click()}
+        >
+          <Icon name="upload" size={14} /> {busy ? 'Uploading...' : 'Upload file'}
+        </button>
+        <button className="card-cta" type="button" onClick={() => setPickerOpen(true)}>
+          <Icon name="link" size={14} /> Link document
+        </button>
+      </div>
+      {pickerOpen ? (
+        <LinkDocumentPicker application={application} onClose={() => setPickerOpen(false)} />
+      ) : null}
+      <div
+        className={`attach-grid ${dragOver ? 'is-dragover' : ''}`}
+        onDragLeave={() => setDragOver(false)}
+        onDragOver={(event) => {
+          event.preventDefault();
+          setDragOver(true);
+        }}
+        onDrop={(event) => {
+          event.preventDefault();
+          setDragOver(false);
+          if (event.dataTransfer.files.length) void handleFiles(event.dataTransfer.files);
+        }}
+      >
+        {attachments.length ? (
+          attachments.map((attachment) => (
+            <div key={attachment.id} className="attach-card">
+              <Icon name={attachmentIcon(attachment.kind)} />{' '}
+              <strong style={{ color: 'var(--white)' }}>{attachment.name}</strong>
+              {attachment.source === 'resume' ? (
+                <span className="chip is-tag">Resume</span>
+              ) : attachment.source === 'cover-letter' ? (
+                <span className="chip is-tag">Cover letter</span>
+              ) : null}
+              <div style={{ color: 'var(--muted)', marginTop: 4 }}>
+                {attachment.size} · {fmtDate(attachment.when)}
+              </div>
+              <div className="row-center" style={{ gap: 6, marginTop: 8 }}>
+                {attachment.storagePath || attachment.dataUrl ? (
+                  <button
+                    className="card-cta"
+                    type="button"
+                    onClick={() =>
+                      void openStoredFile(attachment).catch(() =>
+                        pushToast({ kind: 'error', message: 'Could not open this attachment.' }),
+                      )
+                    }
+                  >
+                    Download
+                  </button>
+                ) : null}
+                <button
+                  aria-label={`Remove ${attachment.name}`}
+                  className="card-cta"
+                  type="button"
+                  onClick={() => remove(attachment)}
+                >
+                  Remove
+                </button>
+              </div>
             </div>
+          ))
+        ) : (
+          <div className="empty-state">No attachments yet - upload a file or drag one here.</div>
+        )}
+      </div>
+    </>
+  );
+}
+
+function LinkDocumentPicker({
+  application,
+  onClose,
+}: {
+  application: Application;
+  onClose: () => void;
+}) {
+  const resumes = useProfileStore((state) => state.resumes);
+  const coverLetters = useProfileStore((state) => state.coverLetters);
+  const attachments = useAppsStore((state) => state.activity[application.id]?.attachments);
+  const addAttachment = useAppsStore((state) => state.addAttachment);
+  const pushToast = useUiStore((state) => state.pushToast);
+
+  function isLinked(docId: string): boolean {
+    return (attachments ?? []).some((item) => item.sourceDocId === docId);
+  }
+
+  function link(
+    source: 'resume' | 'cover-letter',
+    doc: {
+      id: Uuid;
+      name: string;
+      file: string;
+      size: string;
+      storagePath?: string;
+      dataUrl?: string;
+    },
+  ) {
+    addAttachment(application.id, {
+      name: doc.name,
+      kind: fileKindOf(doc.file),
+      size: doc.size,
+      source,
+      sourceDocId: doc.id,
+      ...(doc.storagePath !== undefined ? { storagePath: doc.storagePath } : {}),
+      ...(doc.dataUrl !== undefined ? { dataUrl: doc.dataUrl } : {}),
+    });
+    pushToast({ message: `${doc.name} linked` });
+    onClose();
+  }
+
+  const rows = [
+    ...resumes.map((doc) => ({ doc, source: 'resume' as const, label: 'Resume' })),
+    ...coverLetters.map((doc) => ({ doc, source: 'cover-letter' as const, label: 'Cover letter' })),
+  ];
+
+  return (
+    <div className="linked-list" style={{ marginBottom: 12 }}>
+      {rows.length ? (
+        rows.map(({ doc, source, label }) => (
+          <div key={doc.id} className="linked-row row-center" style={{ gap: 8 }}>
+            <span className="chip is-tag">{label}</span>
+            <strong style={{ color: 'var(--white)' }}>{doc.name}</strong>
+            <span style={{ color: 'var(--muted)' }}>{doc.size}</span>
+            <span className="grow" />
+            <button
+              aria-label={`Link ${doc.name}`}
+              className="card-cta"
+              disabled={isLinked(doc.id)}
+              type="button"
+              onClick={() => link(source, doc)}
+            >
+              {isLinked(doc.id) ? 'Linked' : 'Link'}
+            </button>
           </div>
         ))
       ) : (
-        <div className="empty-state">No attachments yet.</div>
+        <div className="empty-state">
+          No documents in your library yet - upload one on the Profile page.
+        </div>
       )}
+      <button className="card-cta" type="button" onClick={onClose}>
+        Close
+      </button>
     </div>
   );
 }
 
 function LinkedTab({ application }: { application: Application }) {
   const activity = useAppsStore((state) => state.activity[application.id]);
+  const addLink = useAppsStore((state) => state.addLink);
+  const removeLink = useAppsStore((state) => state.removeLink);
+  const pushToast = useUiStore((state) => state.pushToast);
+  const [title, setTitle] = useState('');
+  const [url, setUrl] = useState('');
   const links = activity?.links ?? [];
+
+  function submit(event: React.FormEvent) {
+    event.preventDefault();
+    const trimmedTitle = title.trim();
+    const trimmedUrl = url.trim();
+    if (!trimmedTitle || !/^https?:\/\/\S+$/.test(trimmedUrl)) {
+      pushToast({ kind: 'error', message: 'Enter a title and a valid http(s) URL.' });
+      return;
+    }
+    addLink(application.id, { type: 'link', title: trimmedTitle, meta: trimmedUrl });
+    setTitle('');
+    setUrl('');
+  }
+
   return (
-    <div className="linked-list">
-      {links.length ? (
-        links.map((link) => (
-          <div key={link.id} className="linked-row">
-            <span className="chip is-tag">{link.type}</span>{' '}
-            <strong style={{ color: 'var(--white)' }}>{link.title}</strong>
-            <div style={{ color: 'var(--muted)', marginTop: 4 }}>{link.meta}</div>
+    <>
+      <form className="row-center" style={{ gap: 8, marginBottom: 12 }} onSubmit={submit}>
+        <input
+          aria-label="Link title"
+          placeholder="Title (e.g. Take-home exercise)"
+          style={{
+            flex: 1,
+            background: 'transparent',
+            border: '1px solid var(--border)',
+            borderRadius: 8,
+            color: 'var(--white)',
+            font: 'inherit',
+            padding: '8px 10px',
+          }}
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+        />
+        <input
+          aria-label="Link URL"
+          placeholder="https://..."
+          style={{
+            flex: 1,
+            background: 'transparent',
+            border: '1px solid var(--border)',
+            borderRadius: 8,
+            color: 'var(--white)',
+            font: 'inherit',
+            padding: '8px 10px',
+          }}
+          value={url}
+          onChange={(event) => setUrl(event.target.value)}
+        />
+        <button className="astral-gold-btn" type="submit">
+          <Icon name="add_link" size={14} /> Add link
+        </button>
+      </form>
+      <div className="linked-list">
+        {links.length ? (
+          links.map((link) => (
+            <div key={link.id} className="linked-row">
+              <span className="chip is-tag">{link.type}</span>{' '}
+              {/^https?:\/\//.test(link.meta) ? (
+                <a
+                  href={link.meta}
+                  rel="noreferrer noopener"
+                  style={{ color: 'var(--white)', fontWeight: 600 }}
+                  target="_blank"
+                >
+                  {link.title} <Icon name="open_in_new" size={11} />
+                </a>
+              ) : (
+                <strong style={{ color: 'var(--white)' }}>{link.title}</strong>
+              )}
+              <div style={{ color: 'var(--muted)', marginTop: 4 }}>{link.meta}</div>
+              <button
+                aria-label={`Remove ${link.title}`}
+                className="card-cta"
+                style={{ marginTop: 6 }}
+                type="button"
+                onClick={() => removeLink(application.id, link.id)}
+              >
+                Remove
+              </button>
+            </div>
+          ))
+        ) : (
+          <div className="empty-state">
+            No linked items yet - add the posting, take-home, or docs.
           </div>
-        ))
-      ) : (
-        <div className="empty-state">No linked items yet.</div>
-      )}
-    </div>
+        )}
+      </div>
+    </>
   );
 }
 

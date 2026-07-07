@@ -2,14 +2,18 @@
 
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import { seedAll, seedUuid, type SortMode } from '@/lib/data/seed';
+import { seedAll, type SortMode } from '@/lib/data/seed';
+import { emptyBoardState, type BoardState } from '@/lib/data/board-defaults';
 import { computeAts } from '@/lib/utils/ats';
 import { daysAgo } from '@/lib/utils/dates';
 import { slugifyCompanyId } from '@/lib/company-logos';
+import { getPersistenceAdapter } from '@/lib/supabase/env';
 import type {
   Activity,
   AppDocs,
+  ApplicationLink,
   Application,
+  Attachment,
   DailyPick,
   HistoryEvent,
   JobListing,
@@ -18,10 +22,24 @@ import type {
   StatusId,
   Uuid,
 } from '@/lib/types';
+import { DEMO_USER_ID } from '@/lib/types';
 import { useProfileStore } from '@/lib/store/profile-store';
 import { recordAudit } from '@/lib/store/audit';
 
-const seed = seedAll();
+const seeded = getPersistenceAdapter() === 'local';
+
+function freshBoard(): BoardState {
+  if (!seeded) return emptyBoardState();
+  const fresh = seedAll();
+  return {
+    applications: fresh.applications,
+    activity: fresh.activity,
+    appDocs: fresh.appDocs,
+    statusSortMode: fresh.statusSortMode,
+  };
+}
+
+const initialBoard = freshBoard();
 
 export type NewApplicationInput = {
   status: StatusId;
@@ -49,6 +67,10 @@ type AppsState = {
   reorderInStatus: (status: StatusId, orderedIds: Uuid[]) => void;
   setStatusSortMode: (status: StatusId, mode: SortMode) => void;
   addComment: (applicationId: Uuid, text: string) => void;
+  addAttachment: (applicationId: Uuid, input: Omit<Attachment, 'id' | 'when'>) => Attachment;
+  removeAttachment: (applicationId: Uuid, attachmentId: Uuid) => void;
+  addLink: (applicationId: Uuid, input: Omit<ApplicationLink, 'id'>) => void;
+  removeLink: (applicationId: Uuid, linkId: Uuid) => void;
   addToWishlist: (listing: JobListing | DailyPick, source?: 'Jobs' | 'Research') => Application;
   applyCard: (id: Uuid, docs: { resumeId: Uuid; coverLetterId: Uuid | null }) => void;
   archiveApp: (id: Uuid) => void;
@@ -116,18 +138,18 @@ function syncReset(): void {
 export const useAppsStore = create<AppsState>()(
   persist(
     (set, get) => ({
-      applications: seed.applications,
-      activity: seed.activity,
-      appDocs: seed.appDocs,
-      statusSortMode: seed.statusSortMode,
+      applications: initialBoard.applications,
+      activity: initialBoard.activity,
+      appDocs: initialBoard.appDocs,
+      statusSortMode: initialBoard.statusSortMode,
       getByDisplayId: (displayId) =>
         get().applications.find((app) => app.displayId === displayId && !app.deletedAt),
       createCard: (input) => {
         const displayId = nextDisplayId(get().applications);
         const now = new Date().toISOString();
         const app: Application = {
-          id: seedUuid(displayId),
-          ownerUserId: seed.applications[0]?.ownerUserId ?? '00000000-0000-0000-0000-000000000001',
+          id: crypto.randomUUID(),
+          ownerUserId: DEMO_USER_ID,
           createdAt: now,
           updatedAt: now,
           deletedAt: null,
@@ -258,6 +280,112 @@ export const useAppsStore = create<AppsState>()(
         recordAudit('application', applicationId, 'comment_added');
         sync(applicationId);
       },
+      addAttachment: (applicationId, input) => {
+        const attachment: Attachment = {
+          ...input,
+          id: crypto.randomUUID(),
+          when: new Date().toISOString(),
+        };
+        const text =
+          input.source === 'resume'
+            ? `Resume linked: ${input.name}`
+            : input.source === 'cover-letter'
+              ? `Cover letter linked: ${input.name}`
+              : `Attachment added: ${input.name}`;
+        set((state) => ({
+          activity: {
+            ...state.activity,
+            [applicationId]: {
+              ...(state.activity[applicationId] ?? emptyActivity()),
+              attachments: [attachment, ...(state.activity[applicationId]?.attachments ?? [])],
+              history: [
+                historyEvent('attach', text),
+                ...(state.activity[applicationId]?.history ?? []),
+              ],
+            },
+          },
+          applications: state.applications.map((app) =>
+            app.id === applicationId ? bump(app) : app,
+          ),
+        }));
+        recordAudit('application', applicationId, 'attachment_added', {
+          name: input.name,
+          source: input.source ?? 'upload',
+        });
+        sync(applicationId);
+        return attachment;
+      },
+      removeAttachment: (applicationId, attachmentId) => {
+        const target = get().activity[applicationId]?.attachments.find(
+          (item) => item.id === attachmentId,
+        );
+        if (!target) return;
+        set((state) => ({
+          activity: {
+            ...state.activity,
+            [applicationId]: {
+              ...(state.activity[applicationId] ?? emptyActivity()),
+              attachments: (state.activity[applicationId]?.attachments ?? []).filter(
+                (item) => item.id !== attachmentId,
+              ),
+              history: [
+                historyEvent('attach', `Attachment removed: ${target.name}`),
+                ...(state.activity[applicationId]?.history ?? []),
+              ],
+            },
+          },
+          applications: state.applications.map((app) =>
+            app.id === applicationId ? bump(app) : app,
+          ),
+        }));
+        recordAudit('application', applicationId, 'attachment_removed', { name: target.name });
+        sync(applicationId);
+      },
+      addLink: (applicationId, input) => {
+        const link: ApplicationLink = { ...input, id: crypto.randomUUID() };
+        set((state) => ({
+          activity: {
+            ...state.activity,
+            [applicationId]: {
+              ...(state.activity[applicationId] ?? emptyActivity()),
+              links: [link, ...(state.activity[applicationId]?.links ?? [])],
+              history: [
+                historyEvent('link', `Link added: ${input.title}`),
+                ...(state.activity[applicationId]?.history ?? []),
+              ],
+            },
+          },
+          applications: state.applications.map((app) =>
+            app.id === applicationId ? bump(app) : app,
+          ),
+        }));
+        recordAudit('application', applicationId, 'link_added', { title: input.title });
+        sync(applicationId);
+      },
+      removeLink: (applicationId, linkId) => {
+        const target = get().activity[applicationId]?.links.find((item) => item.id === linkId);
+        if (!target) return;
+        set((state) => ({
+          activity: {
+            ...state.activity,
+            [applicationId]: {
+              ...(state.activity[applicationId] ?? emptyActivity()),
+              links: (state.activity[applicationId]?.links ?? []).filter(
+                (item) => item.id !== linkId,
+              ),
+              history: [
+                historyEvent('link', `Link removed: ${target.title}`),
+                ...(state.activity[applicationId]?.history ?? []),
+              ],
+            },
+          },
+          applications: state.applications.map((app) =>
+            app.id === applicationId ? bump(app) : app,
+          ),
+        }));
+        recordAudit('application', applicationId, 'link_removed', { title: target.title });
+        sync(applicationId);
+      },
       addToWishlist: (input, source = 'Jobs') => {
         const sourceId = listingId(input);
         const existing = get().applications.find((app) => app.sourceListingId === sourceId);
@@ -272,8 +400,8 @@ export const useAppsStore = create<AppsState>()(
             ? input.salary.split('+').at(1)?.trim()
             : undefined;
         const app: Application = {
-          id: seedUuid(displayId),
-          ownerUserId: seed.applications[0]?.ownerUserId ?? '00000000-0000-0000-0000-000000000001',
+          id: crypto.randomUUID(),
+          ownerUserId: DEMO_USER_ID,
           createdAt: now,
           updatedAt: now,
           deletedAt: null,
@@ -402,13 +530,7 @@ export const useAppsStore = create<AppsState>()(
         sync(id);
       },
       reset: () => {
-        const fresh = seedAll();
-        set({
-          applications: fresh.applications,
-          activity: fresh.activity,
-          appDocs: fresh.appDocs,
-          statusSortMode: fresh.statusSortMode,
-        });
+        set(freshBoard());
         recordAudit('demo', 'apps', 'reset');
         syncReset();
       },
