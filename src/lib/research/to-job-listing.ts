@@ -19,7 +19,18 @@ export function externalJobKey(job: ProviderJob): string {
   return `${job.sourceProvider}:${job.sourceId}`;
 }
 
-export function toJobListing(job: ProviderJob, keywords: string[]): JobListing {
+/**
+ * `JobListing` plus the raw description/apply-url text carried through from
+ * the provider. Kept separate from `src/lib/types.ts` so the seed-backed
+ * `JobListing` type stays untouched — these fields are only ever populated
+ * for live (supabase-adapter) listings.
+ */
+export type JobListingWithDetails = JobListing & {
+  description?: string;
+  applyUrl?: string;
+};
+
+export function toJobListing(job: ProviderJob, keywords: string[]): JobListingWithDetails {
   return {
     id: externalJobKey(job),
     displayId: `JOB-${job.sourceId}`,
@@ -33,5 +44,7 @@ export function toJobListing(job: ProviderJob, keywords: string[]): JobListing {
     match: computeMatchScore(job, keywords),
     tags: job.tags ?? [],
     saved: false,
+    ...(job.description ? { description: job.description } : {}),
+    ...(job.applyUrl ? { applyUrl: job.applyUrl } : {}),
   };
 }

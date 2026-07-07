@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { CompanyLogo, Icon } from '@/components/jobtracker/JobTrackerApp';
 import { DemoOnly } from '@/components/ui/DemoOnly';
-import { COMPANIES, JOB_LISTINGS } from '@/lib/data/seed';
+import { COMPANIES } from '@/lib/data/seed';
+import { useLiveListings } from '@/lib/client/use-live-listings';
 import { useAppsStore } from '@/lib/store/apps-store';
 import { useUiStore } from '@/lib/store/ui-store';
 
@@ -12,17 +13,20 @@ export function JobListingPreviewDialog({ displayId }: { displayId: string }) {
   const router = useRouter();
   const addToWishlist = useAppsStore((state) => state.addToWishlist);
   const pushToast = useUiStore((state) => state.pushToast);
-  const listing = JOB_LISTINGS.find((item) => item.displayId === displayId);
+  const { listings, loading } = useLiveListings();
+  const listing = listings.find((item) => item.displayId === displayId);
 
   if (!listing) {
     return (
       <div className="modal-backdrop">
         <div className="modal compact-modal">
           <div className="modal__main">
-            <h1 className="modal__title">Listing not found</h1>
-            <Link className="astral-gold-btn" href="/jobs">
-              Back to jobs
-            </Link>
+            <h1 className="modal__title">{loading ? 'Loading listing...' : 'Listing not found'}</h1>
+            {loading ? null : (
+              <Link className="astral-gold-btn" href="/jobs">
+                Back to jobs
+              </Link>
+            )}
           </div>
         </div>
       </div>
@@ -80,10 +84,14 @@ export function JobListingPreviewDialog({ displayId }: { displayId: string }) {
 
           <div className="modal__section">
             <h4>Preview</h4>
-            <p className="modal__desc">
-              Posted {listing.posted}. This listing is not on your board yet. Previewing it does not
-              create a card until you add it to the wishlist.
-            </p>
+            {listing.description ? (
+              <p className="modal__desc">{listing.description}</p>
+            ) : (
+              <p className="modal__desc">
+                Posted {listing.posted}. This listing is not on your board yet. Previewing it does
+                not create a card until you add it to the wishlist.
+              </p>
+            )}
           </div>
           <div className="modal__section">
             <h4>Why it matches</h4>
@@ -98,9 +106,20 @@ export function JobListingPreviewDialog({ displayId }: { displayId: string }) {
           </div>
         </div>
         <footer className="dialog-footer">
-          <DemoOnly className="card-cta" label="Open original">
-            <Icon name="external-link" size={12} /> Open original
-          </DemoOnly>
+          {listing.applyUrl ? (
+            <a
+              className="card-cta"
+              href={listing.applyUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              <Icon name="external-link" size={12} /> Apply on company site
+            </a>
+          ) : (
+            <DemoOnly className="card-cta" label="Open original">
+              <Icon name="external-link" size={12} /> Open original
+            </DemoOnly>
+          )}
           <button className="astral-gold-btn" type="button" onClick={wishlist}>
             <Icon name="playlist-add" size={14} /> Add to wishlist
           </button>

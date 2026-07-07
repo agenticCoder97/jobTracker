@@ -5,30 +5,34 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CompanyLogo, Icon } from '@/components/jobtracker/JobTrackerApp';
 import { AppShell } from '@/components/layout/AppShell';
-import { JOB_LISTINGS, STATUSES } from '@/lib/data/seed';
+import { STATUSES } from '@/lib/data/seed';
+import { useLiveListings } from '@/lib/client/use-live-listings';
 import { useAppsStore } from '@/lib/store/apps-store';
 import { useUiStore } from '@/lib/store/ui-store';
 import { useJobsParams } from '@/lib/url-params/use-jobs-params';
 import { fmtDate } from '@/lib/utils/dates';
 import { buildJobsRows, type JobsParams, type JobsRow } from './use-jobs-rows';
 
+const isSupabase = process.env.NEXT_PUBLIC_PERSISTENCE_ADAPTER === 'supabase';
+
 type JobsParamsHook = ReturnType<typeof useJobsParams>;
 
 export function JobsView() {
   const params = useJobsParams();
   const applications = useAppsStore((state) => state.applications);
+  const { listings, loading, refetch } = useLiveListings();
   const rows = useMemo(
-    () => buildJobsRows(applications, JOB_LISTINGS, params),
-    [applications, params],
+    () => buildJobsRows(applications, listings, params),
+    [applications, listings, params],
   );
   const counts = useMemo(
     () => ({
-      all: applications.length + JOB_LISTINGS.length,
+      all: applications.length + listings.length,
       tracked: applications.length,
-      matched: JOB_LISTINGS.length,
-      open: JOB_LISTINGS.length,
+      matched: listings.filter((listing) => listing.match >= 60).length,
+      open: listings.length,
     }),
-    [applications.length],
+    [applications.length, listings],
   );
 
   return (
@@ -36,7 +40,12 @@ export function JobsView() {
       <main className="board">
         <JobsHeader count={rows.length} total={counts.all} />
         <JobsFilterBar counts={counts} params={params} />
-        <JobsTable rows={rows} />
+        <JobsTable
+          rows={rows}
+          loading={loading}
+          showFetchCta={!loading && isSupabase && listings.length === 0}
+          onFetchLive={refetch}
+        />
       </main>
     </AppShell>
   );
@@ -142,7 +151,17 @@ function JobsFilterBar({
   );
 }
 
-function JobsTable({ rows }: { rows: JobsRow[] }) {
+function JobsTable({
+  rows,
+  loading,
+  showFetchCta,
+  onFetchLive,
+}: {
+  rows: JobsRow[];
+  loading: boolean;
+  showFetchCta: boolean;
+  onFetchLive: () => void;
+}) {
   return (
     <div className="jobs-table-wrap">
       <table className="jobs-table">
@@ -163,7 +182,40 @@ function JobsTable({ rows }: { rows: JobsRow[] }) {
           ))}
         </tbody>
       </table>
-      {rows.length === 0 ? <div className="empty-state">No jobs match those filters.</div> : null}
+      {loading ? <div className="empty-state">Loading live listings...</div> : null}
+      {!loading && showFetchCta ? (
+        <FetchLiveJobsEmptyState onFetchLive={onFetchLive} />
+      ) : null}
+      {!loading && !showFetchCta && rows.length === 0 ? (
+        <div className="empty-state">No jobs match those filters.</div>
+      ) : null}
+    </div>
+  );
+}
+
+function FetchLiveJobsEmptyState({ onFetchLive }: { onFetchLive: () => void }) {
+  const pushToast = useUiStore((state) => state.pushToast);
+  const [running, setRunning] = useState(false);
+
+  const runFetch = async () => {
+    setRunning(true);
+    try {
+      const res = await fetch('/api/research/run', { method: 'POST' });
+      if (!res.ok) throw new Error(`research run ${res.status}`);
+      onFetchLive();
+    } catch (err) {
+      pushToast({ message: err instanceof Error ? err.message : 'Failed to fetch live jobs' });
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <div className="empty-state">
+      <p>No live listings yet. Run a search to pull in open roles.</p>
+      <button className="astral-gold-btn" type="button" disabled={running} onClick={runFetch}>
+        <Icon name="search" size={14} /> {running ? 'Fetching...' : 'Fetch live jobs'}
+      </button>
     </div>
   );
 }
