@@ -22,7 +22,13 @@ const positivePhrases = [
 ];
 
 const rejectPhrases = ['new jobs', 'job alert', 'recommended jobs', 'saved search', 'newsletter'];
-const atsDomains = ['greenhouse.io', 'lever.co', 'ashbyhq.com', 'workday.com', 'smartrecruiters.com'];
+const atsDomains = [
+  'greenhouse.io',
+  'lever.co',
+  'ashbyhq.com',
+  'workday.com',
+  'smartrecruiters.com',
+];
 
 function stripHtml(html: string): string {
   return html

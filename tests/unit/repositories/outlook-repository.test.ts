@@ -19,10 +19,8 @@ vi.mock('@/lib/supabase/admin', () => ({
           // Awaitable (list reads) AND exposes maybeSingle (single-row reads).
           return {
             maybeSingle: () => maybeSingleMock(table),
-            then: (
-              resolve: (value: unknown) => unknown,
-              reject: (reason: unknown) => unknown,
-            ) => Promise.resolve(eqResult).then(resolve, reject),
+            then: (resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) =>
+              Promise.resolve(eqResult).then(resolve, reject),
           };
         },
       }),

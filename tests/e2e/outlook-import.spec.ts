@@ -11,7 +11,12 @@ const highCandidate = {
     confidence: 'high',
     score: 90,
     reasons: ['application confirmation phrase'],
-    extracted: { companyName: 'Acme', role: 'Staff Engineer', source: 'Outlook', applied: '2026-07-07' },
+    extracted: {
+      companyName: 'Acme',
+      role: 'Staff Engineer',
+      source: 'Outlook',
+      applied: '2026-07-07',
+    },
   },
   signature: 'test-signature-high',
 };
@@ -27,7 +32,12 @@ const mediumCandidate = {
     confidence: 'medium',
     score: 60,
     reasons: ['application confirmation phrase'],
-    extracted: { companyName: 'Globex', role: 'Backend Engineer', source: 'Outlook', applied: '2026-07-06' },
+    extracted: {
+      companyName: 'Globex',
+      role: 'Backend Engineer',
+      source: 'Outlook',
+      applied: '2026-07-06',
+    },
   },
   signature: 'test-signature-medium',
 };
@@ -46,8 +56,18 @@ test.describe('outlook import review flow', () => {
       route.fulfill({
         json: {
           imported: [
-            { applicationId: 'a-1', displayId: 'JT-A1', companyName: 'Acme', role: 'Staff Engineer' },
-            { applicationId: 'a-2', displayId: 'JT-A2', companyName: 'Globex', role: 'Backend Engineer' },
+            {
+              applicationId: 'a-1',
+              displayId: 'JT-A1',
+              companyName: 'Acme',
+              role: 'Staff Engineer',
+            },
+            {
+              applicationId: 'a-2',
+              displayId: 'JT-A2',
+              companyName: 'Globex',
+              role: 'Backend Engineer',
+            },
           ],
         },
       }),

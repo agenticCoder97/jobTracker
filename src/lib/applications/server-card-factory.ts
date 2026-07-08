@@ -55,7 +55,14 @@ export function createServerApplicationBundle(input: ServerApplicationInput): Ap
     activity: {
       comments: [],
       links: input.postingUrl
-        ? [{ id: crypto.randomUUID(), type: 'posting', title: 'Original posting', meta: input.postingUrl }]
+        ? [
+            {
+              id: crypto.randomUUID(),
+              type: 'posting',
+              title: 'Original posting',
+              meta: input.postingUrl,
+            },
+          ]
         : [],
       attachments: [],
       history: [
