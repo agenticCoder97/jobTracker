@@ -12,15 +12,24 @@ export const dynamic = 'force-dynamic';
 
 const STATE_COOKIE = 'outlook_oauth_state';
 
-/** Best-effort mailbox address for display; never blocks the connection. */
-async function fetchUserEmail(accessToken: string): Promise<string | undefined> {
+/**
+ * Best-effort mailbox address for display; never blocks the connection.
+ * Read from the id_token's OIDC claims (we request `openid profile`), which
+ * avoids needing the Graph `User.Read` scope that `GET /me` would require.
+ */
+function emailFromIdToken(idToken: string | undefined): string | undefined {
+  if (!idToken) return undefined;
+  const payloadSegment = idToken.split('.')[1];
+  if (!payloadSegment) return undefined;
   try {
-    const res = await fetch('https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName', {
-      headers: { authorization: `Bearer ${accessToken}` },
-    });
-    if (!res.ok) return undefined;
-    const json = (await res.json()) as { mail?: string; userPrincipalName?: string };
-    return json.mail ?? json.userPrincipalName ?? undefined;
+    const claims = JSON.parse(Buffer.from(payloadSegment, 'base64url').toString('utf8')) as {
+      email?: unknown;
+      preferred_username?: unknown;
+    };
+    const email = typeof claims.email === 'string' ? claims.email : undefined;
+    const upn =
+      typeof claims.preferred_username === 'string' ? claims.preferred_username : undefined;
+    return email ?? upn;
   } catch {
     return undefined;
   }
@@ -53,7 +62,7 @@ export async function GET(request: Request) {
   try {
     const token = await exchangeAuthorizationCode(config, code);
     const encrypted = encryptToken(token.refreshToken, config.tokenEncryptionKey);
-    const email = await fetchUserEmail(token.accessToken);
+    const email = emailFromIdToken(token.idToken);
     await saveOutlookConnection({
       ...(email ? { email } : {}),
       refreshTokenCiphertext: encrypted.ciphertext,
