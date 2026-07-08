@@ -1850,3 +1850,211 @@ a {
   outline-offset: 4px;
   border-radius: 8px;
 }
+
+/* Outlook email import */
+.board__scan-email {
+  display: inline-flex;
+  height: 30px;
+  align-items: center;
+  gap: 6px;
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--body);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0 12px;
+}
+
+.board__scan-email:hover {
+  border-color: rgba(201, 168, 76, 0.5);
+  background: var(--gold-soft);
+  color: var(--gold);
+}
+
+.outlook-import {
+  width: min(920px, 96vw);
+  height: min(680px, 90vh);
+}
+
+.outlook-import__account {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.outlook-import__body {
+  display: grid;
+  min-height: 0;
+  padding: 0;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+}
+
+.outlook-import__list {
+  margin: 0;
+  overflow-y: auto;
+  border-right: 0.5px solid var(--border);
+  list-style: none;
+  padding: 6px;
+}
+
+.outlook-import__empty {
+  color: var(--muted);
+  font-size: 13px;
+  padding: 24px 16px;
+  text-align: center;
+}
+
+.outlook-import__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+
+.outlook-import__row.is-active {
+  background: var(--gold-soft);
+}
+
+.outlook-import__row input {
+  margin-top: 3px;
+  accent-color: var(--gold);
+}
+
+.outlook-import__row-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.outlook-import__row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.outlook-import__row-top strong {
+  color: var(--white);
+  font-size: 13px;
+}
+
+.outlook-import__confidence {
+  border-radius: var(--radius-pill);
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1px 7px;
+  text-transform: uppercase;
+}
+
+.outlook-import__confidence.is-high {
+  background: var(--gold-soft);
+  color: var(--gold);
+}
+
+.outlook-import__confidence.is-medium {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--body);
+}
+
+.outlook-import__confidence.is-low {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+}
+
+.outlook-import__role {
+  color: var(--body);
+  font-size: 12px;
+}
+
+.outlook-import__subject {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.outlook-import__meta {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.outlook-import__preview {
+  overflow-y: auto;
+  padding: 18px 20px;
+}
+
+.outlook-import__preview-subject {
+  margin: 0 0 6px;
+  color: var(--white);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.outlook-import__preview-from {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.outlook-import__preview-body {
+  margin: 0 0 16px;
+  color: var(--body);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.outlook-import__fields {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+
+.outlook-import__fields div {
+  display: flex;
+  gap: 8px;
+}
+
+.outlook-import__fields dt {
+  min-width: 68px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.outlook-import__fields dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--white);
+  font-size: 12px;
+}
+
+.outlook-import__reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  list-style: none;
+  padding: 0;
+}
+
+.outlook-import__reasons li {
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+  font-size: 11px;
+  padding: 2px 8px;
+}
+
+.outlook-import__preview-empty {
+  color: var(--muted);
+  font-size: 13px;
+}

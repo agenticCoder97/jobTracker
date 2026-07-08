@@ -24,12 +24,14 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { NewApplicationDialog } from '@/components/jobtracker/NewApplicationDialog';
+import { OutlookImportDialog } from '@/components/jobtracker/OutlookImportDialog';
 import { DemoOnly } from '@/components/ui/DemoOnly';
 import { getCompanyLogoSources, resolveLogoCompany, slugifyCompanyId } from '@/lib/company-logos';
 import { COMPANIES, STATUSES, TEAM } from '@/lib/data/seed';
 import { deleteStoredFile, openStoredFile, storeFile } from '@/lib/files/client';
 import { fileKindOf } from '@/lib/files/kind';
 import { resolveIcon } from '@/lib/icon-map';
+import { hydrateFromServer } from '@/lib/store/apps-sync';
 import { useAppsStore } from '@/lib/store/apps-store';
 import { useNotificationsStore } from '@/lib/store/notifications-store';
 import { useProfileStore } from '@/lib/store/profile-store';
@@ -39,6 +41,7 @@ import { companyNameOf } from '@/lib/utils/company-name';
 import { daysFrom, fmtDate } from '@/lib/utils/dates';
 import { gradeFor } from '@/lib/utils/ats';
 import { resolveOrder } from '@/lib/utils/sort-resolver';
+import type { SignedImportCandidate } from '@/lib/outlook/candidate-signing';
 import type {
   Application,
   Attachment,
@@ -468,8 +471,14 @@ function BoardView() {
   const viewMode = useUiStore((state) => state.viewMode);
   const setViewMode = useUiStore((state) => state.setViewMode);
   const openNewApp = useUiStore((state) => state.openNewApp);
+  const pushToast = useUiStore((state) => state.pushToast);
+  const router = useRouter();
   const [draggingId, setDraggingId] = useState<Uuid | null>(null);
   const [dragOverStatus, setDragOverStatus] = useState<StatusId | null>(null);
+  const [outlookOpen, setOutlookOpen] = useState(false);
+  const [outlookLoading, setOutlookLoading] = useState(false);
+  const [outlookCandidates, setOutlookCandidates] = useState<SignedImportCandidate[]>([]);
+  const [outlookEmail, setOutlookEmail] = useState<string | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 6 },
@@ -525,6 +534,71 @@ function BoardView() {
 
   function addCard(status: StatusId) {
     openNewApp(status);
+  }
+
+  async function runOutlookScan() {
+    setOutlookLoading(true);
+    try {
+      const res = await fetch('/api/outlook/scan', { method: 'POST' });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        pushToast({ message: body.error ?? 'Outlook scan failed' });
+        return;
+      }
+      const data = (await res.json()) as {
+        connectedEmail: string | null;
+        candidates: SignedImportCandidate[];
+      };
+      setOutlookCandidates(data.candidates);
+      setOutlookEmail(data.connectedEmail);
+    } finally {
+      setOutlookLoading(false);
+    }
+  }
+
+  async function openOutlookScan() {
+    const statusRes = await fetch('/api/outlook/status').catch(() => null);
+    const status =
+      statusRes && statusRes.ok
+        ? ((await statusRes.json()) as { connected: boolean })
+        : { connected: false };
+    if (!status.connected) {
+      window.location.href = '/api/outlook/oauth/start';
+      return;
+    }
+    setOutlookCandidates([]);
+    setOutlookOpen(true);
+    await runOutlookScan();
+  }
+
+  async function importOutlookSelection(chosen: SignedImportCandidate[]) {
+    setOutlookLoading(true);
+    try {
+      const res = await fetch('/api/outlook/import', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ candidates: chosen }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        pushToast({ message: body.error ?? 'Outlook import failed' });
+        return;
+      }
+      const data = (await res.json()) as {
+        imported: { displayId: string; companyName: string; role: string }[];
+      };
+      await hydrateFromServer();
+      setOutlookOpen(false);
+      if (data.imported.length === 1) {
+        const only = data.imported[0]!;
+        pushToast({ message: `${only.companyName} · ${only.role} imported` });
+        router.push(`/card/${only.displayId}`);
+      } else if (data.imported.length > 1) {
+        pushToast({ message: `${data.imported.length} applications imported from Outlook` });
+      }
+    } finally {
+      setOutlookLoading(false);
+    }
   }
 
   function statusForDragTarget(id: string, overStatus?: StatusId): StatusId | null {
@@ -583,6 +657,14 @@ function BoardView() {
             <b>{applications.length}</b> applications ·{' '}
             <b>{applications.filter((app) => app.status !== 'rejected').length}</b> active
           </span>
+          <button
+            className="board__scan-email"
+            type="button"
+            onClick={() => void openOutlookScan()}
+          >
+            <Icon name="mail-search" size={14} />
+            Scan email
+          </button>
         </div>
         <div className="board__filters">
           {FILTERS.map((filter) => (
@@ -708,6 +790,15 @@ function BoardView() {
           </div>
         </div>
       )}
+      <OutlookImportDialog
+        open={outlookOpen}
+        onOpenChange={setOutlookOpen}
+        candidates={outlookCandidates}
+        connectedEmail={outlookEmail}
+        loading={outlookLoading}
+        onRescan={runOutlookScan}
+        onImport={importOutlookSelection}
+      />
     </>
   );
 }

@@ -70,6 +70,8 @@ export const ICON_MAP: Record<string, string> = {
   'playlist-add': 'playlist_add',
   'user-plus': 'person_add',
   mail: 'mail',
+  'mail-search': 'mark_email_read',
+  'refresh-cw': 'refresh',
 };
 
 export function resolveIcon(name: string): string {
