@@ -39,6 +39,7 @@ yarn-error.log*
 .design-bundle/
 playwright-report/
 test-results/
+/.superpowers/
 coverage/
 
 # typescript
