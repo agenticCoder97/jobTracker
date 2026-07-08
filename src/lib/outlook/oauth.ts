@@ -7,11 +7,13 @@ export type TokenResponse = {
   refreshToken: string;
   scope: string;
   expiresIn: number;
+  idToken?: string;
 };
 
 type MicrosoftTokenResponse = {
   access_token?: unknown;
   refresh_token?: unknown;
+  id_token?: unknown;
   scope?: unknown;
   expires_in?: unknown;
   error?: unknown;
@@ -101,6 +103,9 @@ async function requestToken(
     refreshToken,
     scope: typeof tokenBody.scope === 'string' ? tokenBody.scope : '',
     expiresIn: typeof tokenBody.expires_in === 'number' ? tokenBody.expires_in : 0,
+    ...(typeof tokenBody.id_token === 'string' && tokenBody.id_token.length > 0
+      ? { idToken: tokenBody.id_token }
+      : {}),
   };
 }
 

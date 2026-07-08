@@ -85,6 +85,20 @@ describe('outlook oauth client', () => {
     });
   });
 
+  test('captures the id_token when present', async () => {
+    mockTokenResponse({
+      access_token: 'access-token',
+      refresh_token: 'refresh-token',
+      id_token: 'header.payload.signature',
+      scope: 'openid profile offline_access Mail.Read',
+      expires_in: 3600,
+    });
+
+    await expect(exchangeAuthorizationCode(config, 'auth-code')).resolves.toMatchObject({
+      idToken: 'header.payload.signature',
+    });
+  });
+
   test('refreshes an access token', async () => {
     mockTokenResponse({
       access_token: 'new-access-token',
