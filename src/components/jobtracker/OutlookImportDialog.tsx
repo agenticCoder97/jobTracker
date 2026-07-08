@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { resolveIcon } from '@/lib/icon-map';
 import type { SignedImportCandidate } from '@/lib/outlook/candidate-signing';
 
@@ -57,17 +57,18 @@ export function OutlookImportDialog({
   onRescan,
   onImport,
 }: Props) {
-  const highConfidenceIds = useMemo(
-    () =>
-      candidates
-        .filter((candidate) => candidate.payload.confidence === 'high')
-        .map((candidate) => candidate.payload.messageId),
-    [candidates],
-  );
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set(highConfidenceIds));
-  const [previewId, setPreviewId] = useState<string | null>(
-    candidates[0]?.payload.messageId ?? null,
-  );
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [previewId, setPreviewId] = useState<string | null>(null);
+
+  // Candidates arrive after the dialog opens (the scan resolves asynchronously),
+  // so preselect high-confidence rows whenever a fresh result set lands.
+  useEffect(() => {
+    const highConfidenceIds = candidates
+      .filter((candidate) => candidate.payload.confidence === 'high')
+      .map((candidate) => candidate.payload.messageId);
+    setSelectedIds(new Set(highConfidenceIds));
+    setPreviewId(candidates[0]?.payload.messageId ?? null);
+  }, [candidates]);
 
   if (!open) return null;
 
@@ -205,7 +206,12 @@ export function OutlookImportDialog({
           <button className="card-cta" type="button" onClick={close}>
             Cancel
           </button>
-          <button className="card-cta" disabled={loading} type="button" onClick={() => void onRescan()}>
+          <button
+            className="card-cta"
+            disabled={loading}
+            type="button"
+            onClick={() => void onRescan()}
+          >
             <Icon name="refresh-cw" size={14} /> Rescan
           </button>
           <button
