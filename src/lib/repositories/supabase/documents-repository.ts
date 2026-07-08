@@ -8,6 +8,7 @@ import 'server-only';
 
 import { getOwnerUserId } from '@/lib/server/owner';
 import { getSupabaseAdminClient } from '@/lib/supabase/admin';
+import { RESUMES } from '@/lib/data/seed';
 import type { CoverLetter, Resume } from '@/lib/types';
 
 export type DocumentsState = {
@@ -35,11 +36,19 @@ export async function listDocuments(): Promise<DocumentsState> {
     if (result.error) throw new Error(`documents list failed: ${result.error.message}`);
   }
   return {
-    resumes: ((resumes.data ?? []) as PayloadRow<Resume>[]).map((row) => row.payload),
+    resumes: withDefaultResume(
+      ((resumes.data ?? []) as PayloadRow<Resume>[]).map((row) => row.payload),
+    ),
     coverLetters: ((coverLetters.data ?? []) as PayloadRow<CoverLetter>[]).map(
       (row) => row.payload,
     ),
   };
+}
+
+function withDefaultResume(resumes: Resume[]): Resume[] {
+  if (resumes.length > 0) return resumes;
+  const defaultResume = RESUMES.find((resume) => resume.isDefault);
+  return defaultResume ? [structuredClone(defaultResume)] : [];
 }
 
 export async function upsertDocuments(state: Partial<DocumentsState>): Promise<void> {

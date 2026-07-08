@@ -11,6 +11,7 @@ import type { IsoDateTime, Uuid } from '@/lib/types';
 export type ProviderId =
   | 'adzuna'
   | 'themuse'
+  | 'remotive'
   | 'jsearch'
   | 'clearbit_logo'
   | 'linkedin'

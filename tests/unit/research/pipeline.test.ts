@@ -1,21 +1,48 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import type { ExternalJob, JobProvider } from '@/lib/api/types';
+import type { ExternalJob, JobProvider, ProviderCallReport } from '@/lib/api/types';
+
+const okSearchJobs = vi.fn(async () => {
+  const jobs: ExternalJob[] = [
+    {
+      sourceProvider: 'themuse',
+      sourceId: 'a',
+      title: 'React Engineer',
+      companyName: 'Acme',
+      tags: ['react'],
+      raw: null,
+    },
+  ];
+  const report: ProviderCallReport = {
+    providerId: 'themuse',
+    requestPath: '/jobs',
+    httpStatus: 200,
+    latencyMs: 5,
+  };
+  return {
+    jobs,
+    report,
+  };
+});
 
 const okProvider: JobProvider = {
   id: 'themuse',
   kind: 'jobs',
-  async searchJobs() {
-    const jobs: ExternalJob[] = [
-      { sourceProvider: 'themuse', sourceId: 'a', title: 'React Engineer', companyName: 'Acme', tags: ['react'], raw: null },
-    ];
-    return { jobs, report: { providerId: 'themuse', requestPath: '/jobs', httpStatus: 200, latencyMs: 5 } };
-  },
+  searchJobs: okSearchJobs,
 };
 const emptyProvider: JobProvider = {
   id: 'adzuna',
   kind: 'jobs',
   async searchJobs() {
-    return { jobs: [], report: { providerId: 'adzuna', requestPath: '/search', httpStatus: 0, latencyMs: 0, error: 'missing keys' } };
+    return {
+      jobs: [],
+      report: {
+        providerId: 'adzuna',
+        requestPath: '/search',
+        httpStatus: 0,
+        latencyMs: 0,
+        error: 'missing keys',
+      },
+    };
   },
 };
 
@@ -29,14 +56,21 @@ vi.mock('@/lib/repositories/supabase/research-repository', () => ({
 const append = vi.fn().mockResolvedValue(undefined);
 vi.mock('@/lib/repositories/server', () => ({ getApiCallLogRepository: () => ({ append }) }));
 vi.mock('@/lib/repositories/supabase/research-preferences-repository', () => ({
-  getSearchPreferences: async () => ({ keywords: ['react'], location: '', remote: 'any' }),
+  getSearchPreferences: async () => ({
+    keywords: ['senior java engineer', 'spring boot'],
+    location: 'Santa Clara, CA',
+    remote: 'hybrid',
+  }),
 }));
-vi.mock('@/lib/repositories/supabase/resume-keywords', () => ({ getResumeKeywords: async () => [] }));
+vi.mock('@/lib/repositories/supabase/resume-keywords', () => ({
+  getResumeKeywords: async () => [],
+}));
 
 import { runResearchRefresh } from '@/lib/research/pipeline';
 
 describe('runResearchRefresh', () => {
   beforeEach(() => {
+    okSearchJobs.mockClear();
     upsertExternalJobs.mockClear();
     upsertExternalCompanies.mockClear();
     append.mockClear();
@@ -50,5 +84,11 @@ describe('runResearchRefresh', () => {
     expect(upsertExternalJobs).toHaveBeenCalledTimes(1);
     expect(upsertExternalCompanies).toHaveBeenCalledTimes(1);
     expect(append).toHaveBeenCalledTimes(2); // one per provider report
+    expect(okSearchJobs).toHaveBeenCalledWith({
+      keywords: ['senior java engineer', 'spring boot'],
+      location: 'Santa Clara, CA',
+      remote: 'hybrid',
+      pageSize: 20,
+    });
   });
 });

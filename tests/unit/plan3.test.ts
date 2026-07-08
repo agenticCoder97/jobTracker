@@ -5,7 +5,7 @@ import { useProfileStore } from '@/lib/store/profile-store';
 describe('Plan 3 seed data', () => {
   test('includes profile and research datasets', () => {
     const seed = seedAll();
-    expect(seed.profile.name).toBe('You');
+    expect(seed.profile.name).toBe('Nikhil Netraganti');
     expect(seed.profile.completeness.sections).toHaveLength(8);
     expect(seed.dailyPicks).toHaveLength(6);
     expect(seed.marketSalaries.length).toBeGreaterThan(4);

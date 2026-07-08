@@ -10,6 +10,14 @@ describe('search preferences', () => {
     expect(normalizeSearchPreferences({})).toEqual(DEFAULT_SEARCH_PREFERENCES);
   });
 
+  test('default preferences target Nikhil senior backend search', () => {
+    expect(DEFAULT_SEARCH_PREFERENCES.location).toBe('Santa Clara, CA');
+    expect(DEFAULT_SEARCH_PREFERENCES.remote).toBe('hybrid');
+    expect(DEFAULT_SEARCH_PREFERENCES.keywords).toEqual(
+      expect.arrayContaining(['senior java engineer', 'spring boot', 'microservices', 'kafka']),
+    );
+  });
+
   test('normalize trims + dedupes + drops empty keywords', () => {
     const prefs = normalizeSearchPreferences({
       keywords: [' React ', 'react', '', 'TypeScript'],
@@ -19,6 +27,13 @@ describe('search preferences', () => {
     expect(prefs.keywords).toEqual(['react', 'typescript']);
     expect(prefs.location).toBe('Remote');
     expect(prefs.remote).toBe('remote');
+  });
+
+  test('empty keyword preferences fall back to Nikhil resume defaults', () => {
+    const prefs = normalizeSearchPreferences({ keywords: [], location: '', remote: 'any' });
+    expect(prefs.keywords).toContain('spring boot');
+    expect(prefs.location).toBe('Santa Clara, CA');
+    expect(prefs.remote).toBe('hybrid');
   });
 
   test('normalize rejects an unknown remote value → any', () => {
