@@ -14,8 +14,14 @@ export type ServerApplicationInput = {
   description?: string | undefined;
 };
 
+// Monotonic counter so several bundles created in one import batch (same
+// millisecond) never share a display_id, which would violate the
+// (owner_user_id, display_id) unique constraint on insert.
+let displaySequence = 0;
+
 function displayId(): string {
-  return `JT-${Date.now().toString(36).toUpperCase()}`;
+  displaySequence += 1;
+  return `JT-${Date.now().toString(36).toUpperCase()}${displaySequence.toString(36).toUpperCase()}`;
 }
 
 export function createServerApplicationBundle(input: ServerApplicationInput): AppBundle {
