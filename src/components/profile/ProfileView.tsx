@@ -32,14 +32,20 @@ export function ProfileView() {
   const profile = useProfileStore((state) => state.profile);
   const done = profile.completeness.sections.filter((section) => section.done).length;
   const completion = Math.round((done / profile.completeness.sections.length) * 100);
+  const initials = profile.name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('');
   return (
     <AppShell>
       <main className="scroll-view profile-view">
         <section className="profile-hero">
-          <div className="profile-photo">YO</div>
+          <div className="profile-photo">{initials || 'NN'}</div>
           <div>
             <h1>
-              {profile.name} <span>({profile.pronouns})</span>
+              {profile.name} {profile.pronouns ? <span>({profile.pronouns})</span> : null}
             </h1>
             <p>{profile.headline}</p>
             <p>

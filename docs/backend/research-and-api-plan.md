@@ -20,7 +20,7 @@ The architecture below treats every external source as a **provider plug-in** be
 | Adzuna | Jobs (US/UK/30+ countries), salary stats | App ID + key, free tier | Best general-purpose seed |
 | The Muse | Jobs + curated company profiles | Public, no key | Limited to participating companies |
 | JSearch (RapidAPI) | Aggregates LinkedIn/Indeed/Glassdoor postings | RapidAPI key, paid tiers | Lawful aggregation since RapidAPI sits on partner data |
-| Remotive | Remote-only job board | Public RSS/JSON | Free, narrow |
+| Remotive API | Remote-only software roles | Public JSON, no key | Useful zero-config daily fallback; preserve Remotive listing URLs for attribution |
 | Clearbit Logo API | Company logos by domain | Public, no key | Already useful for our `CompanyLogo` |
 | OpenCorporates | Company registry data | Free tier with key | Legal entity data, not employer brand |
 
@@ -158,7 +158,7 @@ Vercel cron  ──► /api/cron/research
                     └─ close cron_runs row
 ```
 
-Default schedule: `0 8 * * *` (daily at 08:00 UTC, compatible with Vercel Hobby). Tunable per-subscription via `cadence_cron`.
+Default schedule: `0 13 * * *` (daily at 13:00 UTC, compatible with Vercel Hobby and morning Pacific time). Tunable per-subscription via `cadence_cron`.
 
 ## 6. Logging & analytics wiring
 

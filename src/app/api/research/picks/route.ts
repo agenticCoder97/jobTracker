@@ -6,7 +6,7 @@ import {
   listExternalJobs,
 } from '@/lib/repositories/supabase/research-repository';
 import { computeMatchScore } from '@/lib/research/match-score';
-import { preferenceKeywords } from '@/lib/research/preferences';
+import { DEFAULT_MATCH_PROFILE, preferenceKeywords } from '@/lib/research/preferences';
 import { externalJobKey } from '@/lib/research/to-job-listing';
 import { toDailyPick } from '@/lib/research/to-daily-pick';
 import { shouldUseSupabaseAdapter } from '@/lib/supabase/env';
@@ -30,7 +30,7 @@ export async function GET() {
     const dismissedSet = new Set(dismissed);
     const picks = jobs
       .filter((job) => !dismissedSet.has(externalJobKey(job)))
-      .map((job) => ({ job, score: computeMatchScore(job, keywords) }))
+      .map((job) => ({ job, score: computeMatchScore(job, keywords, DEFAULT_MATCH_PROFILE) }))
       .sort((a, b) => b.score - a.score)
       .slice(0, PICK_LIMIT)
       .map(({ job, score }) => toDailyPick(job, score));
