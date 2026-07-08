@@ -5,12 +5,14 @@ import { clearbitLogo } from '@/lib/api/providers/clearbit-logo';
 import { glassdoor } from '@/lib/api/providers/glassdoor';
 import { jsearch } from '@/lib/api/providers/jsearch';
 import { linkedin } from '@/lib/api/providers/linkedin';
+import { remotive } from '@/lib/api/providers/remotive';
 import { themuse } from '@/lib/api/providers/themuse';
 import type { AnyProvider, JobProvider, ProviderId } from '@/lib/api/types';
 
 const ALL_PROVIDERS: Record<ProviderId, AnyProvider> = {
   adzuna,
   themuse,
+  remotive,
   jsearch,
   clearbit_logo: clearbitLogo,
   linkedin,

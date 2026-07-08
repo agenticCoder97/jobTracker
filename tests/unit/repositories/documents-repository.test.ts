@@ -59,6 +59,15 @@ describe('documents repository', () => {
     expect(state.coverLetters).toEqual([]);
   });
 
+  test('listDocuments falls back to Nikhil default resume when the single-user library is empty', async () => {
+    selectEqMock.mockResolvedValue({ data: [], error: null });
+    const state = await listDocuments();
+    expect(state.resumes).toHaveLength(1);
+    expect(state.resumes[0]?.name).toBe('Nikhil Netraganti Resume 2026');
+    expect(state.resumes[0]?.isDefault).toBe(true);
+    expect(state.coverLetters).toEqual([]);
+  });
+
   test('deleteDocument targets the right table', async () => {
     await deleteDocument('resume', 'r-1');
     expect(deleteEqMock).toHaveBeenCalledWith('resumes', 'id', 'r-1');

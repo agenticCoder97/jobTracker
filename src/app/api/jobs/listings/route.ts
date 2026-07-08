@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { getSearchPreferences } from '@/lib/repositories/supabase/research-preferences-repository';
 import { listExternalJobs } from '@/lib/repositories/supabase/research-repository';
-import { preferenceKeywords } from '@/lib/research/preferences';
+import { DEFAULT_MATCH_PROFILE, preferenceKeywords } from '@/lib/research/preferences';
 import { toJobListing } from '@/lib/research/to-job-listing';
 import { shouldUseSupabaseAdapter } from '@/lib/supabase/env';
 
@@ -19,7 +19,9 @@ export async function GET() {
   try {
     const [jobs, prefs] = await Promise.all([listExternalJobs(), getSearchPreferences()]);
     const keywords = preferenceKeywords(prefs, []);
-    const listings = jobs.map((job) => toJobListing(job, keywords));
+    const listings = jobs
+      .map((job) => toJobListing(job, keywords, DEFAULT_MATCH_PROFILE))
+      .sort((a, b) => b.match - a.match);
     return NextResponse.json({ listings });
   } catch (error) {
     return NextResponse.json(

@@ -1,7 +1,7 @@
 import type { JobListing, RemoteMode } from '@/lib/types';
 import type { ExternalJob as ProviderJob } from '@/lib/api/types';
 import { companySlug } from '@/lib/research/derive-companies';
-import { computeMatchScore } from '@/lib/research/match-score';
+import { computeMatchScore, type MatchProfile } from '@/lib/research/match-score';
 
 function toRemoteMode(remote: ProviderJob['remote']): RemoteMode {
   switch (remote) {
@@ -30,7 +30,11 @@ export type JobListingWithDetails = JobListing & {
   applyUrl?: string;
 };
 
-export function toJobListing(job: ProviderJob, keywords: string[]): JobListingWithDetails {
+export function toJobListing(
+  job: ProviderJob,
+  keywords: string[],
+  profile?: MatchProfile,
+): JobListingWithDetails {
   return {
     id: externalJobKey(job),
     displayId: `JOB-${job.sourceId}`,
@@ -41,7 +45,7 @@ export function toJobListing(job: ProviderJob, keywords: string[]): JobListingWi
     salaryMin: job.salaryMin ?? 0,
     salaryMax: job.salaryMax ?? 0,
     posted: (job.postedAt ?? new Date().toISOString()).slice(0, 10),
-    match: computeMatchScore(job, keywords),
+    match: computeMatchScore(job, keywords, profile),
     tags: job.tags ?? [],
     saved: false,
     ...(job.description ? { description: job.description } : {}),
