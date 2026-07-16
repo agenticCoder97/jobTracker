@@ -183,9 +183,7 @@ function JobsTable({
         </tbody>
       </table>
       {loading ? <div className="empty-state">Loading live listings...</div> : null}
-      {!loading && showFetchCta ? (
-        <FetchLiveJobsEmptyState onFetchLive={onFetchLive} />
-      ) : null}
+      {!loading && showFetchCta ? <FetchLiveJobsEmptyState onFetchLive={onFetchLive} /> : null}
       {!loading && !showFetchCta && rows.length === 0 ? (
         <div className="empty-state">No jobs match those filters.</div>
       ) : null}
@@ -237,7 +235,7 @@ function JobsRowItem({ row }: { row: JobsRow }) {
     <tr>
       <td>
         <div className="jobs-row-link">
-          <CompanyLogo companyId={row.company} size={34} radius={7} />
+          <CompanyLogo companyId={row.company} companyName={row.companyName} size={34} radius={7} />
           <span>
             <Link href={href}>
               <strong>{row.role}</strong>

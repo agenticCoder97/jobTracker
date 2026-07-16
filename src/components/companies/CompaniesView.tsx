@@ -138,12 +138,10 @@ function CompanyCard({ company }: { company: CompanyRow }) {
     <article className="company-card">
       <Link className="company-card__main" href={`/company/${company.id}`}>
         <div className="pick__top">
-          <CompanyLogo companyId={company.id} size={44} radius={9} />
+          <CompanyLogo companyId={company.id} company={company} size={44} radius={9} />
           <div>
             <h2>{company.name}</h2>
-            <p>
-              {detail ? `${detail.industry} · ${detail.hq}` : '—'}
-            </p>
+            <p>{detail ? `${detail.industry} · ${detail.hq}` : '—'}</p>
           </div>
           <div className="pick__match" data-demo-data={detail ? 'true' : undefined}>
             {detail ? (

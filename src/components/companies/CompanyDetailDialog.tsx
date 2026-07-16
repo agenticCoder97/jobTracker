@@ -105,7 +105,7 @@ export function CompanyDetailDialog({ companyId }: { companyId: string }) {
         <div className="modal__body company-detail-body">
           <main className="modal__main">
             <div className="listing-hero">
-              <CompanyLogo companyId={companyId} size={64} radius={12} />
+              <CompanyLogo companyId={companyId} company={company} size={64} radius={12} />
               <div>
                 <h1 className="modal__title">{company.name}</h1>
                 <div className="modal__company-line">

@@ -61,7 +61,12 @@ export function JobListingPreviewDialog({ displayId }: { displayId: string }) {
         </div>
         <div className="modal__main">
           <div className="listing-hero">
-            <CompanyLogo companyId={listing.company} size={64} radius={12} />
+            <CompanyLogo
+              companyId={listing.company}
+              companyName={company?.name ?? listing.company}
+              size={64}
+              radius={12}
+            />
             <div>
               <h1 className="modal__title">{listing.role}</h1>
               <div className="modal__company-line">

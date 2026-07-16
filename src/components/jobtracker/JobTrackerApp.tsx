@@ -45,6 +45,7 @@ import type { SignedImportCandidate } from '@/lib/outlook/candidate-signing';
 import type {
   Application,
   Attachment,
+  Company,
   CompanyId,
   Priority,
   RemoteMode,
@@ -141,21 +142,29 @@ export function Icon({
 
 export function CompanyLogo({
   companyId,
+  company: companyOverride,
+  companyName,
   size = 32,
   radius = 6,
 }: {
   companyId: CompanyId;
+  company?: Company;
+  companyName?: string;
   size?: number;
   radius?: number;
 }) {
-  const company = resolveLogoCompany(companyId, COMPANIES[companyId]);
+  const company = resolveLogoCompany(
+    companyId,
+    companyOverride ?? COMPANIES[companyId],
+    companyName,
+  );
   const logoSources = useMemo(() => getCompanyLogoSources(company, size), [company, size]);
   const [sourceIndex, setSourceIndex] = useState(0);
   const source = logoSources[sourceIndex];
 
   useEffect(() => {
     setSourceIndex(0);
-  }, [company.id, size]);
+  }, [company.id, company.name, size]);
 
   if (source) {
     return (
@@ -932,7 +941,7 @@ function ApplicationCard({
       onClick={() => router.push(`/card/${application.displayId}`)}
     >
       <div className="app-card__top">
-        <CompanyLogo companyId={application.company} />
+        <CompanyLogo companyId={application.company} companyName={companyNameOf(application)} />
         <div className="app-card__title-wrap">
           <div className="app-card__role">{application.role}</div>
           <div className="app-card__company">
@@ -1178,7 +1187,12 @@ function CompanyLine({ application }: { application: Application }) {
   const updateApp = useAppsStore((state) => state.updateApp);
   return (
     <div className="modal__company-line">
-      <CompanyLogo companyId={application.company} size={24} radius={5} />
+      <CompanyLogo
+        companyId={application.company}
+        companyName={companyNameOf(application)}
+        size={24}
+        radius={5}
+      />
       <Link href={`/company/${application.company}`}>{companyNameOf(application)}</Link>
       <span
         contentEditable

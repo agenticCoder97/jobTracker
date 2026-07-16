@@ -26,9 +26,17 @@ describe('company logo resolver', () => {
     });
     expect(source?.src).toContain('https://img.logo.dev/stripe.com?');
     expect(source?.src).toContain('token=pk_test_123');
-    expect(source?.src).toContain('size=88');
+    expect(source?.src).toContain('size=44');
     expect(source?.src).toContain('format=png');
+    expect(source?.src).toContain('retina=true');
     expect(source?.src).toContain('fallback=404');
+  });
+
+  test('uses the bundled Logo.dev publishable key when no override is configured', () => {
+    const [source] = getCompanyLogoSources(stripe, 32);
+
+    expect(source?.kind).toBe('logo-dev');
+    expect(source?.src).toContain('token=pk_DxDDkkPsRtKwBfYjNH6yHQ');
   });
 
   test('uses Logo.dev name lookups when only a company name is available', () => {
@@ -43,13 +51,21 @@ describe('company logo resolver', () => {
     expect(source?.src).toContain('https://img.logo.dev/name/Acme%20Labs?');
   });
 
-  test('falls back to Simple Icons CDN using normalized brand slugs', () => {
+  test('keeps Simple Icons as the fallback after Logo.dev', () => {
     const sources = getCompanyLogoSources(stripe, 32);
 
-    expect(sources[0]).toMatchObject({
+    expect(sources[1]).toMatchObject({
       kind: 'simple-icons',
       src: 'https://cdn.simpleicons.org/stripe',
     });
+  });
+
+  test('preserves an exact company name for name-based lookups', () => {
+    const company = resolveLogoCompany('j-p-morgan', undefined, 'J.P. Morgan');
+    const [source] = getCompanyLogoSources(company, 32);
+
+    expect(company.name).toBe('J.P. Morgan');
+    expect(source?.src).toContain('https://img.logo.dev/name/J.P.%20Morgan?');
   });
 
   test('normalizes arbitrary company ids into display identities', () => {

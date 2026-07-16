@@ -8,11 +8,16 @@ export type CompanyLogoSource = {
 
 const LOGO_DEV_BASE_URL = 'https://img.logo.dev';
 const SIMPLE_ICONS_CDN_URL = 'https://cdn.simpleicons.org';
+const LOGO_DEV_PUBLISHABLE_KEY = 'pk_DxDDkkPsRtKwBfYjNH6yHQ';
 
-export function resolveLogoCompany(companyId: CompanyId, company?: Company): Company {
+export function resolveLogoCompany(
+  companyId: CompanyId,
+  company?: Company,
+  companyName?: string,
+): Company {
   if (company) return company;
 
-  const displayName = toDisplayName(companyId);
+  const displayName = companyName?.trim() || toDisplayName(companyId);
   const fallback: Company = {
     id: companyId,
     name: displayName,
@@ -64,14 +69,13 @@ export function getSimpleIconsSlug(company: Pick<Company, 'id' | 'name'>): strin
 }
 
 function getLogoDevSource(company: Company, displaySize: number): CompanyLogoSource | null {
-  const token = process.env.NEXT_PUBLIC_LOGO_DEV_TOKEN?.trim();
-  if (!token) return null;
+  const token = process.env.NEXT_PUBLIC_LOGO_DEV_TOKEN?.trim() || LOGO_DEV_PUBLISHABLE_KEY;
 
   const domain = getLogoDomain(company);
   const identifier = domain ? domain : `name/${encodeURIComponent(company.name)}`;
   const params = new URLSearchParams({
     token,
-    size: String(Math.min(Math.max(displaySize * 2, 32), 800)),
+    size: String(Math.min(Math.max(Math.round(displaySize), 1), 800)),
     format: 'png',
     retina: 'true',
     theme: 'dark',

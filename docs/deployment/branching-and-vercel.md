@@ -19,7 +19,7 @@
 - **Build Command**: `pnpm build` (Next.js default).
 - **Output Directory**: leave default; Next.js detects `.next/`.
 - **Required environment variables**: none. The local-storage adapter is the v1 default; no Supabase or third-party keys are needed for the app to boot or render.
-- **Optional production/preview env vars**: `NEXT_PUBLIC_LOGO_DEV_TOKEN` enables Logo.dev company-logo lookup. Without it, company logos fall back to Simple Icons CDN and then the local initial tile.
+- **Optional production/preview env vars**: `NEXT_PUBLIC_LOGO_DEV_TOKEN` overrides the bundled Logo.dev publishable key. Company logos fall back to Simple Icons CDN and then the local initial tile when a Logo.dev image is unavailable.
 - **Optional env vars (future Supabase milestone)**: `NEXT_PUBLIC_PERSISTENCE_ADAPTER`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`. See `docs/backend/supabase-roadmap.md`.
 
 ## CI pipeline

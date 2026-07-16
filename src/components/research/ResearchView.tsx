@@ -337,7 +337,7 @@ export function ResearchView() {
           <div className="watched-grid">
             {watchedCompanies.map((item) => (
               <Link key={item.id} className="watched-card" href={`/company/${item.id}`}>
-                <CompanyLogo companyId={item.id} size={34} radius={7} />
+                <CompanyLogo companyId={item.id} company={item} size={34} radius={7} />
                 <span>
                   <strong>{item.name}</strong>
                   <small>{item.domain ?? `${item.openRoles} open roles`}</small>
@@ -438,7 +438,12 @@ function PickCard({
   return (
     <article className="company-card">
       <div className="pick__top">
-        <CompanyLogo companyId={pick.company} size={44} radius={9} />
+        <CompanyLogo
+          companyId={pick.company}
+          companyName={companyName ?? pick.company}
+          size={44}
+          radius={9}
+        />
         <div>
           <h2>{pick.role}</h2>
           <p>
@@ -643,7 +648,7 @@ function ManageWatchlistDialog({
             {companies.length ? (
               companies.map((company) => (
                 <div key={company.id} className="linked-row action-row">
-                  <CompanyLogo companyId={company.id} size={28} radius={6} />
+                  <CompanyLogo companyId={company.id} company={company} size={28} radius={6} />
                   <span className="linked-row__title">{company.name}</span>
                   <button className="card-cta" type="button" onClick={() => onRemove(company)}>
                     <Icon name="x" size={12} /> Remove

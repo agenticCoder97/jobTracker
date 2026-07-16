@@ -11,7 +11,7 @@ Use this checklist before merging `Development` → `Production`.
 - [ ] Reset demo data → state returns to seed; refresh keeps the seed.
 - [ ] Apply flow on a wishlist card moves it to Applied and increments the chosen resume's usage count.
 - [ ] DemoOnly tooltip appears on hover; click fires the spec-canonical toast and does not navigate.
-- [ ] No `.env` keys required for the local adapter; optional public logo lookup uses `NEXT_PUBLIC_LOGO_DEV_TOKEN` in Vercel when configured.
+- [ ] No `.env` keys required for the local adapter; `NEXT_PUBLIC_LOGO_DEV_TOKEN` is only needed in Vercel to override the bundled Logo.dev publishable key.
 - [ ] PR description includes a 1-line scope summary and the Vercel preview URL.
 
 ## Research / live-data configuration (Jobs · Companies · Research)

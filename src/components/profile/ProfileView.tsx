@@ -161,7 +161,7 @@ function OverviewTab() {
         <h2>Experience</h2>
         {profile.experience.map((item) => (
           <div key={item.id} className="experience-row">
-            <CompanyLogo companyId={item.company} size={34} radius={7} />
+            <CompanyLogo companyId={item.company} companyName={item.company} size={34} radius={7} />
             <div>
               <strong>{item.role}</strong>
               <small>
