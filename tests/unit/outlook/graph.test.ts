@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest';
-import { listRecentInboxMessages } from '@/lib/outlook/graph';
+import { listInboxMessages, listRecentInboxMessages } from '@/lib/outlook/graph';
 
 describe('outlook graph client', () => {
   test('queries recent inbox messages with bounded select', async () => {
@@ -16,5 +16,20 @@ describe('outlook graph client', () => {
     expect(url.searchParams.get('$select')).toContain('bodyPreview');
     expect(url.searchParams.get('$filter')).toContain('2026-07-04T00:00:00.000Z');
     expect(messages).toHaveLength(1);
+  });
+
+  test('supports a wider bounded cron lookback', async () => {
+    const fetchMock = vi.fn(async (..._args: unknown[]) => Response.json({ value: [] }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await listInboxMessages('token', {
+      now: new Date('2026-07-15T00:00:00.000Z'),
+      lookbackDays: 14,
+      maxMessages: 200,
+    });
+
+    const url = new URL(String(fetchMock.mock.calls[0]![0]));
+    expect(url.searchParams.get('$top')).toBe('200');
+    expect(url.searchParams.get('$filter')).toContain('2026-07-01T00:00:00.000Z');
   });
 });

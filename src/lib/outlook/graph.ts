@@ -2,11 +2,20 @@ import 'server-only';
 
 import type { GraphMessage } from '@/lib/outlook/parser';
 
-export async function listRecentInboxMessages(
+export type InboxMessageQuery = {
+  now?: Date | undefined;
+  lookbackDays?: number | undefined;
+  maxMessages?: number | undefined;
+};
+
+export async function listInboxMessages(
   accessToken: string,
-  now = new Date(),
+  query: InboxMessageQuery = {},
 ): Promise<GraphMessage[]> {
-  const since = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString();
+  const now = query.now ?? new Date();
+  const lookbackDays = query.lookbackDays ?? 3;
+  const maxMessages = Math.min(Math.max(query.maxMessages ?? 50, 1), 500);
+  const since = new Date(now.getTime() - lookbackDays * 24 * 60 * 60 * 1000).toISOString();
   const url = new URL('https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages');
   url.searchParams.set(
     '$select',
@@ -14,7 +23,7 @@ export async function listRecentInboxMessages(
   );
   url.searchParams.set('$filter', `receivedDateTime ge ${since}`);
   url.searchParams.set('$orderby', 'receivedDateTime desc');
-  url.searchParams.set('$top', '50');
+  url.searchParams.set('$top', String(maxMessages));
   const response = await fetch(url, {
     headers: {
       authorization: `Bearer ${accessToken}`,
@@ -28,5 +37,12 @@ export async function listRecentInboxMessages(
   if (!response.ok) {
     throw new Error(json.error?.message || 'Microsoft Graph messages request failed');
   }
-  return json.value ?? [];
+  return (json.value ?? []).slice(0, maxMessages);
+}
+
+export async function listRecentInboxMessages(
+  accessToken: string,
+  now = new Date(),
+): Promise<GraphMessage[]> {
+  return listInboxMessages(accessToken, { now, lookbackDays: 3, maxMessages: 50 });
 }
