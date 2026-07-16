@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, test } from 'vitest';
 import type { Company } from '@/lib/types';
-import { getCompanyLogoSources, getSimpleIconsSlug, resolveLogoCompany } from '@/lib/company-logos';
+import {
+  getCompanyLogoSources,
+  getPersistedCompanyLogoUrl,
+  getSimpleIconsSlug,
+  resolveLogoCompany,
+} from '@/lib/company-logos';
 
 const stripe: Company = {
   id: 'stripe',
@@ -39,6 +44,15 @@ describe('company logo resolver', () => {
     expect(source?.src).toContain('token=pk_DxDDkkPsRtKwBfYjNH6yHQ');
   });
 
+  test('refuses to expose a secret key through a client-side image URL', () => {
+    process.env.NEXT_PUBLIC_LOGO_DEV_TOKEN = 'sk_not_for_the_browser';
+
+    const [source] = getCompanyLogoSources(stripe, 32);
+
+    expect(source?.src).toContain('token=pk_DxDDkkPsRtKwBfYjNH6yHQ');
+    expect(source?.src).not.toContain('sk_not_for_the_browser');
+  });
+
   test('uses Logo.dev name lookups when only a company name is available', () => {
     process.env.NEXT_PUBLIC_LOGO_DEV_TOKEN = 'pk_test_123';
 
@@ -49,6 +63,19 @@ describe('company logo resolver', () => {
 
     expect(source?.kind).toBe('logo-dev');
     expect(source?.src).toContain('https://img.logo.dev/name/Acme%20Labs?');
+  });
+
+  test('creates one canonical Logo.dev URL for persistence at job creation', () => {
+    process.env.NEXT_PUBLIC_LOGO_DEV_TOKEN = 'pk_test_123';
+
+    const logoUrl = getPersistedCompanyLogoUrl('acme-labs', 'Acme Labs');
+    const sources = getCompanyLogoSources({ ...stripe, logoUrl }, 32);
+
+    expect(logoUrl).toContain('https://img.logo.dev/name/Acme%20Labs?');
+    expect(logoUrl).toContain('token=pk_test_123');
+    expect(logoUrl).toContain('size=128');
+    expect(sources[0]).toEqual({ kind: 'explicit', src: logoUrl, referrerPolicy: 'origin' });
+    expect(sources.filter((source) => source.kind === 'logo-dev')).toHaveLength(0);
   });
 
   test('keeps Simple Icons as the fallback after Logo.dev', () => {

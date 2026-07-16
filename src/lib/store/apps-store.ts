@@ -2,11 +2,11 @@
 
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import { seedAll, type SortMode } from '@/lib/data/seed';
+import { COMPANIES, seedAll, type SortMode } from '@/lib/data/seed';
 import { emptyBoardState, type BoardState } from '@/lib/data/board-defaults';
 import { computeAts } from '@/lib/utils/ats';
 import { daysAgo } from '@/lib/utils/dates';
-import { slugifyCompanyId } from '@/lib/company-logos';
+import { getPersistedCompanyLogoUrl, slugifyCompanyId } from '@/lib/company-logos';
 import { getPersistenceAdapter } from '@/lib/supabase/env';
 import type {
   Activity,
@@ -147,6 +147,7 @@ export const useAppsStore = create<AppsState>()(
       createCard: (input) => {
         const displayId = nextDisplayId(get().applications);
         const now = new Date().toISOString();
+        const company = slugifyCompanyId(input.companyName);
         const app: Application = {
           id: crypto.randomUUID(),
           ownerUserId: DEMO_USER_ID,
@@ -155,8 +156,13 @@ export const useAppsStore = create<AppsState>()(
           deletedAt: null,
           displayId,
           status: input.status,
-          company: slugifyCompanyId(input.companyName),
+          company,
           companyName: input.companyName.trim(),
+          companyLogoUrl: getPersistedCompanyLogoUrl(
+            company,
+            input.companyName,
+            COMPANIES[company],
+          ),
           role: input.role.trim(),
           location: input.location?.trim() || 'Remote',
           remote: input.remote ?? 'Remote',
@@ -408,6 +414,11 @@ export const useAppsStore = create<AppsState>()(
           displayId,
           status: 'wishlist',
           company: input.company,
+          companyLogoUrl: getPersistedCompanyLogoUrl(
+            input.company,
+            COMPANIES[input.company]?.name,
+            COMPANIES[input.company],
+          ),
           role: input.role,
           location: input.location,
           remote: 'remote' in input ? input.remote : modeFromLocation(input.location),

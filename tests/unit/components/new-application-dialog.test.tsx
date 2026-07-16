@@ -36,6 +36,7 @@ describe('NewApplicationDialog', () => {
       .applications.find((app) => app.companyName === 'Acme Corp');
     expect(created?.role).toBe('Staff Engineer');
     expect(created?.status).toBe('applied');
+    expect(created?.companyLogoUrl).toContain('https://img.logo.dev/name/Acme%20Corp?');
     expect(useUiStore.getState().newAppStatus).toBeNull();
   });
 });

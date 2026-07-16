@@ -22,6 +22,8 @@ describe('createCard with input', () => {
     });
     expect(app.company).toBe('acme-corp');
     expect(app.companyName).toBe('Acme Corp');
+    expect(app.companyLogoUrl).toContain('https://img.logo.dev/name/Acme%20Corp?');
+    expect(app.companyLogoUrl).toContain('size=128');
     expect(app.status).toBe('applied');
     expect(app.salaryMin).toBe(190);
     expect(app.postingUrl).toBe('https://acme.example/jobs/123');

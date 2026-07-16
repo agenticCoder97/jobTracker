@@ -16,6 +16,8 @@ describe('createServerApplicationBundle', () => {
     expect(bundle.application.ownerUserId).toBe(DEMO_USER_ID);
     expect(bundle.application.status).toBe('applied');
     expect(bundle.application.companyName).toBe('Acme');
+    expect(bundle.application.companyLogoUrl).toContain('https://img.logo.dev/name/Acme?');
+    expect(bundle.application.companyLogoUrl).toContain('size=128');
     expect(bundle.application.role).toBe('Staff Backend Engineer');
     expect(bundle.application.source).toBe('Outlook');
     expect(bundle.application.applied).toBe('2026-07-07');

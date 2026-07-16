@@ -55,6 +55,8 @@ describe('Plan 2 wishlist creation', () => {
     expect(first.status).toBe('wishlist');
     expect(first.sourceListingId).toBe(listing!.id);
     expect(first.role).toBe('Software Engineer, Search');
+    expect(first.companyLogoUrl).toContain('https://img.logo.dev/perplexity.ai?');
+    expect(first.companyLogoUrl).toContain('size=128');
 
     const copies = useAppsStore
       .getState()

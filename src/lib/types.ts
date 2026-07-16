@@ -159,6 +159,8 @@ export type Application = Audited & {
   company: CompanyId;
   /** Display name for free-form companies; seeded companies resolve via COMPANIES. */
   companyName?: string;
+  /** Canonical Logo.dev image URL captured when the application is created. */
+  companyLogoUrl?: string;
   role: string;
   location: string;
   remote: RemoteMode;

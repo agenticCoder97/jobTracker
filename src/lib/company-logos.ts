@@ -9,6 +9,7 @@ export type CompanyLogoSource = {
 const LOGO_DEV_BASE_URL = 'https://img.logo.dev';
 const SIMPLE_ICONS_CDN_URL = 'https://cdn.simpleicons.org';
 const LOGO_DEV_PUBLISHABLE_KEY = 'pk_DxDDkkPsRtKwBfYjNH6yHQ';
+const PERSISTED_LOGO_SIZE = 128;
 
 export function resolveLogoCompany(
   companyId: CompanyId,
@@ -36,12 +37,17 @@ export function getCompanyLogoSources(company: Company, displaySize = 32): Compa
   const sources: CompanyLogoSource[] = [];
   const logoDevSource = getLogoDevSource(company, displaySize);
   const simpleIconsSlug = getSimpleIconsSlug(company);
+  const hasPersistedLogoDevSource = company.logoUrl?.startsWith(`${LOGO_DEV_BASE_URL}/`) ?? false;
 
   if (company.logoUrl) {
-    sources.push({ kind: 'explicit', src: company.logoUrl });
+    sources.push({
+      kind: 'explicit',
+      src: company.logoUrl,
+      ...(hasPersistedLogoDevSource ? { referrerPolicy: 'origin' as const } : {}),
+    });
   }
 
-  if (logoDevSource) {
+  if (!hasPersistedLogoDevSource) {
     sources.push(logoDevSource);
   }
 
@@ -53,6 +59,34 @@ export function getCompanyLogoSources(company: Company, displaySize = 32): Compa
   }
 
   return sources;
+}
+
+export function getPersistedCompanyLogoUrl(
+  companyId: CompanyId,
+  companyName?: string,
+  company?: Company,
+): string {
+  return getLogoDevImageUrl(
+    resolveLogoCompany(companyId, company, companyName),
+    PERSISTED_LOGO_SIZE,
+  );
+}
+
+export function getLogoDevImageUrl(company: Company, displaySize = 128): string {
+  const configuredToken = process.env.NEXT_PUBLIC_LOGO_DEV_TOKEN?.trim();
+  const token = configuredToken?.startsWith('pk_') ? configuredToken : LOGO_DEV_PUBLISHABLE_KEY;
+  const domain = getLogoDomain(company);
+  const identifier = domain ? domain : `name/${encodeURIComponent(company.name)}`;
+  const params = new URLSearchParams({
+    token,
+    size: String(Math.min(Math.max(Math.round(displaySize), 1), 800)),
+    format: 'png',
+    retina: 'true',
+    theme: 'dark',
+    fallback: '404',
+  });
+
+  return `${LOGO_DEV_BASE_URL}/${identifier}?${params.toString()}`;
 }
 
 export function getSimpleIconsSlug(company: Pick<Company, 'id' | 'name'>): string | null {
@@ -68,23 +102,10 @@ export function getSimpleIconsSlug(company: Pick<Company, 'id' | 'name'>): strin
   return normalized || null;
 }
 
-function getLogoDevSource(company: Company, displaySize: number): CompanyLogoSource | null {
-  const token = process.env.NEXT_PUBLIC_LOGO_DEV_TOKEN?.trim() || LOGO_DEV_PUBLISHABLE_KEY;
-
-  const domain = getLogoDomain(company);
-  const identifier = domain ? domain : `name/${encodeURIComponent(company.name)}`;
-  const params = new URLSearchParams({
-    token,
-    size: String(Math.min(Math.max(Math.round(displaySize), 1), 800)),
-    format: 'png',
-    retina: 'true',
-    theme: 'dark',
-    fallback: '404',
-  });
-
+function getLogoDevSource(company: Company, displaySize: number): CompanyLogoSource {
   return {
     kind: 'logo-dev',
-    src: `${LOGO_DEV_BASE_URL}/${identifier}?${params.toString()}`,
+    src: getLogoDevImageUrl(company, displaySize),
     referrerPolicy: 'origin',
   };
 }

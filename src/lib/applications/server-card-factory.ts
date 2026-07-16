@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { slugifyCompanyId } from '@/lib/company-logos';
+import { getPersistedCompanyLogoUrl, slugifyCompanyId } from '@/lib/company-logos';
 import type { AppBundle } from '@/lib/repositories/supabase/apps-repository';
 import { DEMO_USER_ID, type Application } from '@/lib/types';
 
@@ -26,6 +26,7 @@ function displayId(): string {
 
 export function createServerApplicationBundle(input: ServerApplicationInput): AppBundle {
   const now = new Date().toISOString();
+  const company = slugifyCompanyId(input.companyName);
   const application: Application = {
     id: crypto.randomUUID(),
     ownerUserId: DEMO_USER_ID,
@@ -34,8 +35,9 @@ export function createServerApplicationBundle(input: ServerApplicationInput): Ap
     deletedAt: null,
     displayId: displayId(),
     status: 'applied',
-    company: slugifyCompanyId(input.companyName),
+    company,
     companyName: input.companyName.trim(),
+    companyLogoUrl: getPersistedCompanyLogoUrl(company, input.companyName),
     role: input.role.trim(),
     location: input.location?.trim() || 'Remote',
     remote: 'Remote',

@@ -36,7 +36,12 @@ import {
 import { NewApplicationDialog } from '@/components/jobtracker/NewApplicationDialog';
 import { OutlookImportDialog } from '@/components/jobtracker/OutlookImportDialog';
 import { DemoOnly } from '@/components/ui/DemoOnly';
-import { getCompanyLogoSources, resolveLogoCompany, slugifyCompanyId } from '@/lib/company-logos';
+import {
+  getCompanyLogoSources,
+  getPersistedCompanyLogoUrl,
+  resolveLogoCompany,
+  slugifyCompanyId,
+} from '@/lib/company-logos';
 import { COMPANIES, STATUSES, TEAM } from '@/lib/data/seed';
 import { deleteStoredFile, openStoredFile, storeFile } from '@/lib/files/client';
 import { fileKindOf } from '@/lib/files/kind';
@@ -154,27 +159,32 @@ export function CompanyLogo({
   companyId,
   company: companyOverride,
   companyName,
+  logoUrl,
   size = 32,
   radius = 6,
 }: {
   companyId: CompanyId;
   company?: Company;
   companyName?: string;
+  logoUrl?: string | undefined;
   size?: number;
   radius?: number;
 }) {
-  const company = resolveLogoCompany(
-    companyId,
-    companyOverride ?? COMPANIES[companyId],
-    companyName,
-  );
+  const company = useMemo(() => {
+    const resolved = resolveLogoCompany(
+      companyId,
+      companyOverride ?? COMPANIES[companyId],
+      companyName,
+    );
+    return logoUrl ? { ...resolved, logoUrl } : resolved;
+  }, [companyId, companyName, companyOverride, logoUrl]);
   const logoSources = useMemo(() => getCompanyLogoSources(company, size), [company, size]);
   const [sourceIndex, setSourceIndex] = useState(0);
   const source = logoSources[sourceIndex];
 
   useEffect(() => {
     setSourceIndex(0);
-  }, [company.id, company.name, size]);
+  }, [company.id, company.logoUrl, company.name, size]);
 
   if (source) {
     return (
@@ -219,6 +229,17 @@ export function CompanyLogo({
       {company.initial}
     </span>
   );
+}
+
+function companyIdentityPatch(
+  name: string,
+): Pick<Application, 'company' | 'companyName' | 'companyLogoUrl'> {
+  const company = slugifyCompanyId(name);
+  return {
+    company,
+    companyName: name,
+    companyLogoUrl: getPersistedCompanyLogoUrl(company, name, COMPANIES[company]),
+  };
 }
 
 function Avatar({ who, size = 22 }: { who: TeamId; size?: number }) {
@@ -951,7 +972,11 @@ function ApplicationCard({
       onClick={() => router.push(`/card/${application.displayId}`)}
     >
       <div className="app-card__top">
-        <CompanyLogo companyId={application.company} companyName={companyNameOf(application)} />
+        <CompanyLogo
+          companyId={application.company}
+          companyName={companyNameOf(application)}
+          logoUrl={application.companyLogoUrl}
+        />
         <div className="app-card__title-wrap">
           <div className="app-card__role">{application.role}</div>
           <div className="app-card__company">
@@ -1219,11 +1244,7 @@ function CompanyLine({ application }: { application: Application }) {
       setCompanyDraft(companyName);
       return;
     }
-    updateApp(
-      application.id,
-      { companyName: name, company: slugifyCompanyId(name) },
-      'Company edited',
-    );
+    updateApp(application.id, companyIdentityPatch(name), 'Company edited');
   }, [application.id, companyDraft, companyName, updateApp]);
 
   const handleCompanyKeyDown = useCallback(
@@ -1243,7 +1264,13 @@ function CompanyLine({ application }: { application: Application }) {
 
   return (
     <div className="modal__company-line">
-      <CompanyLogo companyId={application.company} companyName={companyName} size={24} radius={5} />
+      <CompanyLogo
+        companyId={application.company}
+        companyName={companyName}
+        logoUrl={application.companyLogoUrl}
+        size={24}
+        radius={5}
+      />
       {editingCompany ? (
         <input
           autoFocus
@@ -2011,11 +2038,7 @@ function SidePanel({ application }: { application: Application }) {
           label="Company"
           value={companyNameOf(application)}
           onCommit={(name) =>
-            updateApp(
-              application.id,
-              { companyName: name, company: slugifyCompanyId(name) },
-              'Company edited',
-            )
+            updateApp(application.id, companyIdentityPatch(name), 'Company edited')
           }
         />
         <EditableSideRow

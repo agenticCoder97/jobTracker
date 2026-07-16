@@ -235,7 +235,13 @@ function JobsRowItem({ row }: { row: JobsRow }) {
     <tr>
       <td>
         <div className="jobs-row-link">
-          <CompanyLogo companyId={row.company} companyName={row.companyName} size={34} radius={7} />
+          <CompanyLogo
+            companyId={row.company}
+            companyName={row.companyName}
+            logoUrl={row.kind === 'tracked' ? row.application.companyLogoUrl : undefined}
+            size={34}
+            radius={7}
+          />
           <span>
             <Link href={href}>
               <strong>{row.role}</strong>
