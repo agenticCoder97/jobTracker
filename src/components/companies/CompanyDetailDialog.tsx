@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, type MouseEvent as ReactMouseEvent } from 'react';
 import { CompanyLogo, Icon } from '@/components/jobtracker/JobTrackerApp';
 import { DemoOnly } from '@/components/ui/DemoOnly';
 import { COMPANY_DETAILS, STATUSES } from '@/lib/data/seed';
@@ -11,7 +12,17 @@ import { useLiveListings } from '@/lib/client/use-live-listings';
 import { useAppsStore } from '@/lib/store/apps-store';
 import { useUiStore } from '@/lib/store/ui-store';
 
-export function CompanyDetailDialog({ companyId }: { companyId: string }) {
+function stopModalMouseDown(event: ReactMouseEvent) {
+  event.stopPropagation();
+}
+
+export function CompanyDetailDialog({
+  companyId,
+  intercepted = false,
+}: {
+  companyId: string;
+  intercepted?: boolean;
+}) {
   const router = useRouter();
   const applications = useAppsStore((state) => state.applications);
   const addToWishlist = useAppsStore((state) => state.addToWishlist);
@@ -21,13 +32,48 @@ export function CompanyDetailDialog({ companyId }: { companyId: string }) {
   const company = companies.find((item) => item.id === companyId);
   const detail = COMPANY_DETAILS[companyId] ?? null;
   const { watched, pending, toggle } = useCompanyWatch(companyId, company?.watched ?? false);
+  const close = useCallback(() => {
+    if (intercepted) {
+      router.back();
+    } else {
+      router.replace('/companies');
+    }
+  }, [intercepted, router]);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') close();
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [close]);
 
   if (!company) {
     return (
-      <div className="modal-backdrop">
-        <div className="modal compact-modal">
+      <div className="modal-backdrop" role="presentation" onMouseDown={close}>
+        <div
+          aria-labelledby="company-not-found-title"
+          aria-modal="true"
+          className="modal compact-modal"
+          role="dialog"
+          onMouseDown={stopModalMouseDown}
+        >
+          <div className="modal__head">
+            <div className="modal__crumbs">
+              <Icon name="domain" size={14} /> Companies
+            </div>
+            <span className="grow" />
+            <button
+              aria-label="Close company detail"
+              className="icon-btn"
+              type="button"
+              onClick={close}
+            >
+              <Icon name="x" size={15} />
+            </button>
+          </div>
           <div className="modal__main">
-            <h1 className="modal__title">
+            <h1 id="company-not-found-title" className="modal__title">
               {companiesLoading ? 'Loading company...' : 'Company not found'}
             </h1>
             {companiesLoading ? null : (
@@ -52,8 +98,14 @@ export function CompanyDetailDialog({ companyId }: { companyId: string }) {
   }
 
   return (
-    <div className="modal-backdrop" role="presentation">
-      <section aria-label={`${company.name} detail`} className="modal">
+    <div className="modal-backdrop" role="presentation" onMouseDown={close}>
+      <section
+        aria-label={`${company.name} detail`}
+        aria-modal="true"
+        className="modal"
+        role="dialog"
+        onMouseDown={stopModalMouseDown}
+      >
         <div className="modal__head">
           <div className="modal__crumbs">
             <Icon name="domain" size={14} /> Companies
@@ -97,7 +149,7 @@ export function CompanyDetailDialog({ companyId }: { companyId: string }) {
             aria-label="Close company detail"
             className="icon-btn"
             type="button"
-            onClick={() => router.back()}
+            onClick={close}
           >
             <Icon name="x" size={15} />
           </button>

@@ -22,7 +22,17 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { NewApplicationDialog } from '@/components/jobtracker/NewApplicationDialog';
 import { OutlookImportDialog } from '@/components/jobtracker/OutlookImportDialog';
 import { DemoOnly } from '@/components/ui/DemoOnly';
@@ -1185,15 +1195,84 @@ export function CardDetailDialog({ displayId }: { displayId: string }) {
 
 function CompanyLine({ application }: { application: Application }) {
   const updateApp = useAppsStore((state) => state.updateApp);
+  const companyName = companyNameOf(application);
+  const [editingCompany, setEditingCompany] = useState(false);
+  const [companyDraft, setCompanyDraft] = useState(companyName);
+
+  useEffect(() => {
+    if (!editingCompany) setCompanyDraft(companyName);
+  }, [companyName, editingCompany]);
+
+  const startCompanyEdit = useCallback(() => {
+    setCompanyDraft(companyName);
+    setEditingCompany(true);
+  }, [companyName]);
+
+  const handleCompanyDraftChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    setCompanyDraft(event.target.value);
+  }, []);
+
+  const commitCompanyEdit = useCallback(() => {
+    const name = companyDraft.trim();
+    setEditingCompany(false);
+    if (!name || name === companyName) {
+      setCompanyDraft(companyName);
+      return;
+    }
+    updateApp(
+      application.id,
+      { companyName: name, company: slugifyCompanyId(name) },
+      'Company edited',
+    );
+  }, [application.id, companyDraft, companyName, updateApp]);
+
+  const handleCompanyKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLInputElement>) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        event.currentTarget.blur();
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setCompanyDraft(companyName);
+        setEditingCompany(false);
+      }
+    },
+    [companyName],
+  );
+
   return (
     <div className="modal__company-line">
-      <CompanyLogo
-        companyId={application.company}
-        companyName={companyNameOf(application)}
-        size={24}
-        radius={5}
-      />
-      <Link href={`/company/${application.company}`}>{companyNameOf(application)}</Link>
+      <CompanyLogo companyId={application.company} companyName={companyName} size={24} radius={5} />
+      {editingCompany ? (
+        <input
+          autoFocus
+          aria-label="Company name"
+          className="modal__company-editor"
+          value={companyDraft}
+          onBlur={commitCompanyEdit}
+          onChange={handleCompanyDraftChange}
+          onKeyDown={handleCompanyKeyDown}
+        />
+      ) : (
+        <button
+          aria-label="Edit company"
+          className="modal__company-name"
+          title="Edit company"
+          type="button"
+          onClick={startCompanyEdit}
+        >
+          {companyName}
+        </button>
+      )}
+      <Link
+        aria-label={`Open ${companyName} company details`}
+        className="modal__company-details"
+        href={`/company/${application.company}`}
+        title="Open company details"
+      >
+        <Icon name="external-link" size={13} />
+      </Link>
       <span
         contentEditable
         suppressContentEditableWarning

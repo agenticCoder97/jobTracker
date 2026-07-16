@@ -771,8 +771,50 @@ a {
   font-size: 13px;
 }
 
+.modal__company-name,
 .modal__company-line a {
   color: var(--gold);
+}
+
+.modal__company-name {
+  border: 0;
+  border-bottom: 1px dashed rgba(201, 168, 76, 0.45);
+  background: transparent;
+  cursor: text;
+  font: inherit;
+  padding: 1px 0;
+}
+
+.modal__company-name:hover,
+.modal__company-name:focus-visible {
+  border-bottom-color: var(--gold);
+  outline: none;
+}
+
+.modal__company-editor {
+  width: min(240px, 40vw);
+  border: 0.5px solid var(--gold);
+  border-radius: var(--radius-sm);
+  background: var(--elevated);
+  color: var(--white);
+  font: inherit;
+  outline: none;
+  padding: 4px 7px;
+}
+
+.modal__company-details {
+  display: inline-flex;
+  height: 22px;
+  width: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.modal__company-details:hover,
+.modal__company-details:focus-visible {
+  background: var(--gold-soft);
+  outline: none;
 }
 
 .modal__tabs {
